@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "requiredTables": [
+    "trip_facts",
+    "quarantined_trips",
+    "hourly_zone_metrics",
+    "daily_route_metrics",
+    "data_quality_summary"
+  ],
+  "requiredFiles": [
+    "dbt_project.yml",
+    "profiles.yml",
+    "serving.duckdb",
+    "target/run_results.json"
+  ],
+  "validTripRules": [
+    "dropoff_at > pickup_at",
+    "pickup_location_id exists in taxi_zones.csv",
+    "dropoff_location_id exists in taxi_zones.csv",
+    "trip_distance >= 0",
+    "fare_amount >= 0"
+  ],
+  "quarantineReasonPrecedence": [
+    "invalid_duration",
+    "unknown_pickup_zone",
+    "unknown_dropoff_zone",
+    "negative_distance",
+    "negative_fare"
+  ],
+  "rowAccounting": "raw = accepted + quarantined",
+  "exports": "one Parquet file per required table",
+  "queryOrder": "Every persisted or reported query result must use a deterministic ORDER BY"
+}

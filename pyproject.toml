@@ -1,0 +1,49 @@
+[project]
+name = "codex-taxi-distillation-demo"
+version = "0.1.0"
+description = "One-agent Codex demo for Taxi analysis, skill distillation, DSPy, and local Qwen"
+readme = "README.md"
+authors = [
+    { name = "Dan Suman" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "dbt-duckdb>=1.9,<2",
+    "dspy>=3.1,<3.2",
+    "duckdb>=1.4,<2",
+    "pydantic>=2.12,<3",
+    "rich>=14,<15",
+    "typer>=0.21,<1",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19,<2",
+    "pytest>=9,<10",
+    "ruff>=0.15,<1",
+]
+
+[project.scripts]
+taxi-demo = "codex_taxi_distillation_demo.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.11.0,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/conftest.py" = ["E501"] # Embedded fake-Codex program is clearer as executable source.
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
