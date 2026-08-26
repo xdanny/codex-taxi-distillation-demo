@@ -63,7 +63,10 @@ def test_decimal_revenue_is_cent_equivalent(demo_root: Path, tmp_path: Path) -> 
     database = workspace / "serving.duckdb"
     export = workspace / "exports" / "hourly_zone_metrics.parquet"
     connection = duckdb.connect(str(database))
-    connection.execute("copy hourly_zone_metrics to ? (format parquet, overwrite true)", [str(export)])
+    connection.execute(
+        "copy hourly_zone_metrics to ? (format parquet, overwrite true)",
+        [str(export)],
+    )
     connection.close()
     assert verify_candidate(workspace)["accepted"] is True
 
