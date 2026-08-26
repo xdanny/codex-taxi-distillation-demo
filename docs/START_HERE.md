@@ -45,9 +45,57 @@ activate that environment; every command below begins with `uv run`.
 
 ## 3. Choose a path
 
-### Path A: inspect accepted products without model calls
+The primary live demo uses Qwen `qwen3.8-27b`. Start with Path A when that model is loaded
+in LM Studio. Path B is a zero-cost installation check; Path C reproduces the complete
+experiment.
 
-Start here to confirm the repository works before spending model time:
+### Path A: run Qwen 3.8 locally with the checked-in skill
+
+This path exercises Codex, LM Studio, the candidate sandbox, dbt, and the outside verifier.
+It uses a previously extracted skill, so it does not make hosted Terra calls.
+
+First ask the doctor which model IDs LM Studio advertises:
+
+```bash
+uv run taxi-demo doctor
+```
+
+When every doctor check says `"pass": true`, create a fresh cohort and run the treatment:
+
+```bash
+uv run taxi-demo start
+uv run taxi-demo prepare
+uv run taxi-demo use-example-skill
+uv run taxi-demo run qwen-skill --repairs 1
+```
+
+The terminal shows the live Codex task list and commands. Completion ends with a table
+containing the run ID, acceptance result, attempt count, reported tokens, and elapsed time.
+
+If `qwen3.8-27b` is not loaded, `doctor` exits with failure but prints `loadedModelIds`.
+You can deliberately select another exact Qwen ID for both commands:
+
+```bash
+uv run taxi-demo doctor --model YOUR_MODEL_ID
+uv run taxi-demo run qwen-skill --model YOUR_MODEL_ID --repairs 1
+```
+
+Inspect that exact run:
+
+```bash
+uv run taxi-demo runs
+uv run taxi-demo inspect-run --run YOUR_RUN_ID
+uv run taxi-demo query --run YOUR_RUN_ID 'show tables'
+uv run taxi-demo query-file --run YOUR_RUN_ID contracts/analyst-questions.sql
+```
+
+Replace `YOUR_RUN_ID` with the full ID printed by `runs`. The receipt marks the skill origin
+as `checked-in-example`. This is a live Qwen product build with a previously learned skill;
+it is not a new distillation experiment.
+
+### Path B: inspect accepted products without model calls
+
+Use this path to confirm the repository works without spending model time:
 
 ```bash
 uv run taxi-demo examples
@@ -74,52 +122,6 @@ The output prints the exact local paths. Open `models/`, `tests/`,
 `evidence/example-validation.json`, and `serving.duckdb` under either example. See
 [`examples/README.md`](../examples/README.md) for dbt rebuild commands.
 
-### Path B: run one real local Qwen candidate with the checked-in skill
-
-This path exercises Codex, LM Studio, the candidate sandbox, dbt, and the outside verifier.
-It uses a previously extracted skill, so it does not make hosted Terra calls.
-
-First ask the doctor which model IDs LM Studio advertises:
-
-```bash
-uv run taxi-demo doctor
-```
-
-If the default `qwen3.8-27b` is not loaded, the command exits with failure but prints
-`loadedModelIds`. Rerun it with one exact Qwen ID from that list:
-
-```bash
-uv run taxi-demo doctor --model qwen3.6-35b-a3b-ud-mlx
-```
-
-When every doctor check says `"pass": true`, create a fresh cohort and run the treatment:
-
-```bash
-uv run taxi-demo start
-uv run taxi-demo prepare
-uv run taxi-demo use-example-skill
-uv run taxi-demo run qwen-skill \
-  --model qwen3.6-35b-a3b-ud-mlx \
-  --repairs 1
-```
-
-Replace the example model ID with the one that passed your doctor check. The terminal shows
-the live Codex task list and commands. Completion ends with a table containing the run ID,
-acceptance result, attempt count, reported tokens, and elapsed time.
-
-Inspect that exact run:
-
-```bash
-uv run taxi-demo runs
-uv run taxi-demo inspect-run --run YOUR_RUN_ID
-uv run taxi-demo query --run YOUR_RUN_ID 'show tables'
-uv run taxi-demo query-file --run YOUR_RUN_ID contracts/analyst-questions.sql
-```
-
-Replace `YOUR_RUN_ID` with the full ID printed by `runs`. The receipt marks the skill origin
-as `checked-in-example`. This is a live Qwen product build with a previously learned skill;
-it is not a new distillation experiment.
-
 ### Path C: run the complete experiment from fresh evidence
 
 This path makes multiple hosted Terra calls and multiple local Qwen calls. It starts three
@@ -133,23 +135,25 @@ The agent-managed entrypoint can inspect failed phases and resume deliberately:
 codex --ask-for-approval never exec --ephemeral --ignore-user-config \
   --sandbox danger-full-access \
   -C . \
-  '$run-offline-data-loop-demo Run the complete demo using qwen3.6-35b-a3b-ud-mlx.'
+  '$run-offline-data-loop-demo Run the complete demo.'
 ```
 
-Replace the model ID with the exact ID that passed `taxi-demo doctor --model ...`. On macOS,
-the outer `danger-full-access` setting is required because the harness starts separate Codex
-processes with their own `workspace-write` candidate sandboxes.
+This uses `qwen3.8-27b`. On macOS, the outer `danger-full-access` setting is required because
+the harness starts separate Codex processes with their own `workspace-write` candidate
+sandboxes.
 
 You can also run the fixed sequence directly:
 
 ```bash
 uv run taxi-demo full \
-  --model qwen3.6-35b-a3b-ud-mlx \
   --teachers 3 \
   --parallel 3 \
   --repairs 1 \
   --max-metric-calls 18
 ```
+
+To use another model, pass the same exact `--model YOUR_MODEL_ID` to `doctor` and `full`, or
+name that model ID in the agent instruction.
 
 Success produces `.demo/experiments/EXPERIMENT_ID/artifacts/report/comparison.md`. Inspect
 the cohort with:

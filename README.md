@@ -14,30 +14,40 @@ quarantined trips, hourly pickup metrics, daily route metrics, and a data-qualit
 An outside verifier reruns dbt, checks every row against the validity rules, recomputes the
 metrics, executes three fixed Analyst queries, and checks the Parquet exports.
 
-## Start here
+## Run the local Qwen 3.8 demo
 
-If this is your first time in the repository, follow
-[`docs/START_HERE.md`](docs/START_HERE.md). It separates three paths:
-
-1. inspect the included accepted products without making model calls;
-2. run one local Qwen candidate with the checked-in distilled skill;
-3. create fresh Terra evidence, distill a new skill, optimize a DSPy router, and compare
-   all Qwen treatments.
-
-The shortest working path is:
+Start LM Studio, load the exact model ID `qwen3.8-27b`, and start its local API server on
+port `1234`. Then run:
 
 ```bash
 git clone https://github.com/xdanny/codex-taxi-distillation-demo.git
 cd codex-taxi-distillation-demo
 uv sync --frozen --all-groups
-uv run taxi-demo query-example terra 'select count(*) as accepted_rows from trip_facts'
-uv run taxi-demo query-example qwen-skill \
-  'select reason, row_count from data_quality_summary order by reason'
+uv run taxi-demo doctor
+uv run taxi-demo start
+uv run taxi-demo prepare
+uv run taxi-demo use-example-skill
+uv run taxi-demo run qwen-skill --repairs 1
 ```
 
-The first query returns `995` accepted rows. The second accounts for the five deliberately
-invalid rows. Reaching those results proves that the installation and included DuckDB
-products work; it does not run or compare the models.
+`doctor` must report that LM Studio advertises `qwen3.8-27b` before the run begins. The
+final command streams Qwen's Codex task list and commands, then prints the run ID, whether
+the outside verifier accepted the product, attempts, reported tokens, and elapsed time.
+It builds a fresh dbt project from the 1,000-row Taxi fixture using the checked-in distilled
+skill; it does not replay the included Qwen result.
+
+Inspect and query the completed candidate with the run ID printed by the command:
+
+```bash
+uv run taxi-demo runs
+uv run taxi-demo inspect-run --run YOUR_RUN_ID
+uv run taxi-demo query --run YOUR_RUN_ID 'show tables'
+uv run taxi-demo query-file --run YOUR_RUN_ID contracts/analyst-questions.sql
+```
+
+For installation details, a zero-model-call inspection path, a different LM Studio model,
+or the complete Terra, DSPy, distillation, and Qwen experiment, follow
+[`docs/START_HERE.md`](docs/START_HERE.md).
 
 ## What the experiment runs
 

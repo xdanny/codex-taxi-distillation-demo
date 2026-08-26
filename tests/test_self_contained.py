@@ -40,6 +40,19 @@ def test_documented_entrypoint_ignores_user_configuration() -> None:
     assert "Every candidate model still runs" in readme
 
 
+def test_readme_leads_with_live_qwen_38_demo() -> None:
+    readme = (Path(__file__).parents[1] / "README.md").read_text(encoding="utf-8")
+    live_demo = readme.index("## Run the local Qwen 3.8 demo")
+    experiment = readme.index("## What the experiment runs")
+
+    assert live_demo < experiment
+    opening = readme[live_demo:experiment]
+    assert "qwen3.8-27b" in opening
+    assert "taxi-demo doctor" in opening
+    assert "taxi-demo use-example-skill" in opening
+    assert "taxi-demo run qwen-skill --repairs 1" in opening
+
+
 def test_start_guide_has_executable_newcomer_paths() -> None:
     guide = (
         Path(__file__).parents[1] / "docs" / "START_HERE.md"
