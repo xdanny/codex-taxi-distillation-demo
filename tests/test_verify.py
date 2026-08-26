@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from pathlib import Path
 
 import duckdb
@@ -41,6 +42,30 @@ def test_same_size_but_changed_export_fails(demo_root: Path, tmp_path: Path) -> 
         if item["name"] == "Parquet exports match serving tables"
     )
     assert exports["pass"] is False
+
+
+def test_decimal_revenue_is_cent_equivalent(demo_root: Path, tmp_path: Path) -> None:
+    workspace = tmp_path / "candidate"
+    prepare_run_workspace(workspace, root=demo_root)
+    make_valid_candidate(workspace)
+    model = workspace / "models" / "hourly_zone_metrics.sql"
+    model.write_text(
+        model.read_text().replace(
+            "sum(total_revenue) as total_revenue",
+            "cast(round(sum(total_revenue), 2) as decimal(38, 2)) as total_revenue",
+        )
+    )
+    subprocess.run(
+        [shutil.which("dbt") or "dbt", "build", "--project-dir", str(workspace),
+         "--profiles-dir", str(workspace)],
+        cwd=workspace, check=True, capture_output=True, text=True,
+    )
+    database = workspace / "serving.duckdb"
+    export = workspace / "exports" / "hourly_zone_metrics.parquet"
+    connection = duckdb.connect(str(database))
+    connection.execute("copy hourly_zone_metrics to ? (format parquet, overwrite true)", [str(export)])
+    connection.close()
+    assert verify_candidate(workspace)["accepted"] is True
 
 
 def test_missing_serving_database_fails_with_findings(demo_root: Path, tmp_path: Path) -> None:

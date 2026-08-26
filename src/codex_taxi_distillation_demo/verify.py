@@ -171,12 +171,16 @@ def semantic_checks(connection: duckdb.DuckDBPyConnection, workspace: Path) -> d
         connection,
         """with expected as (
           select pickup_zone, pickup_hour, count(*)::bigint as trip_count,
-                 sum(total_revenue) as total_revenue
+                 cast(round(sum(total_revenue), 2) as decimal(38, 2)) as total_revenue
           from expected_valid group by pickup_zone, pickup_hour
+        ), actual as (
+          select pickup_zone, pickup_hour, trip_count,
+                 cast(round(total_revenue, 2) as decimal(38, 2)) as total_revenue
+          from hourly_zone_metrics
         )
         select count(*) from (
-          (select * from hourly_zone_metrics except all select * from expected)
-          union all (select * from expected except all select * from hourly_zone_metrics)
+          (select * from actual except all select * from expected)
+          union all (select * from expected except all select * from actual)
         )""",
     )
     daily_delta = scalar_int(
