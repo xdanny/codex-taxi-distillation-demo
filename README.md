@@ -52,6 +52,7 @@ From the repository root:
 ```bash
 codex --ask-for-approval never exec --ephemeral --ignore-user-config \
   --sandbox workspace-write \
+  --add-dir "${CODEX_HOME:-$HOME/.codex}" \
   -c sandbox_workspace_write.network_access=true \
   -c features.network_proxy=false \
   -C . \
@@ -63,6 +64,8 @@ active experiment has a comparison report or when it reaches a concrete prerequi
 evidence boundary. The complete run makes several hosted and local model calls and may take
 a long time; the exact duration depends on the machine, model responses, repairs, and DSPy
 search. Set `CODEX_TIMEOUT_SECONDS` to change the one-hour per-call timeout.
+The explicit Codex-home mount lets nested Codex processes use the caller's existing login
+and state database; it is not staged as candidate model input.
 
 The same instruction works in an interactive `codex` session:
 
