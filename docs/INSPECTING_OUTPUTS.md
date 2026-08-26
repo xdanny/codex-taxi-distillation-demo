@@ -6,31 +6,47 @@ staged for that candidate.
 
 ## Choose a completed run
 
-First print the active experiment:
+List every preserved experiment:
 
 ```bash
-uv run taxi-demo current
+uv run taxi-demo experiments
 ```
 
-The command returns an experiment ID and its absolute path. List its completed runs:
+The leading `*` marks the active experiment. Add `--json` when another command or script
+needs to consume the list.
+
+List the active experiment's completed and interrupted runs:
 
 ```bash
-find .demo/experiments/<experiment-id>/runs \
-  -mindepth 2 -maxdepth 2 -name run.json -print | sort
+uv run taxi-demo runs
 ```
 
-Set a short variable for the run you want to inspect:
+List a different experiment or request JSON output:
 
 ```bash
-export DEMO_RUN=.demo/experiments/<experiment-id>/runs/<run-id>
+uv run taxi-demo runs --experiment <experiment-id>
+uv run taxi-demo runs --experiment <experiment-id> --json
 ```
 
 Only a directory with `run.json` is complete. A directory containing only a request and
 input receipt is an interrupted attempt and is not included in the comparison report.
 
+Print every important path for the latest accepted run:
+
+```bash
+uv run taxi-demo inspect-run
+```
+
+Select a specific run when comparing arms:
+
+```bash
+uv run taxi-demo inspect-run --run <run-id>
+```
+
 ## Where the dbt files are
 
-The accepted candidate is under `$DEMO_RUN/workspace/`:
+`inspect-run` prints the selected workspace. The accepted candidate's dbt files are under
+that `workspace/` directory:
 
 | Path | What it contains |
 | --- | --- |
@@ -49,6 +65,7 @@ Candidates can organize `models/` differently. Inspect the preserved tree instea
 assuming a particular staging or marts directory:
 
 ```bash
+export DEMO_RUN=.demo/experiments/<experiment-id>/runs/<run-id>
 find "$DEMO_RUN/workspace/models" "$DEMO_RUN/workspace/tests" \
   -type f -print | sort
 ```
@@ -85,50 +102,33 @@ The current contract requires these tables:
 - `daily_route_metrics`
 - `data_quality_summary`
 
-Query them read-only with the locked project environment:
+Query the latest accepted run. The command prints the selected run ID before the result:
 
 ```bash
-uv run python <<'PY'
-import os
-from pathlib import Path
-
-import duckdb
-
-database = Path(os.environ["DEMO_RUN"]) / "workspace" / "serving.duckdb"
-connection = duckdb.connect(str(database), read_only=True)
-
-connection.sql("show tables").show()
-connection.sql("""
-    select pickup_zone, sum(trip_count) as trips
-    from hourly_zone_metrics
-    group by pickup_zone
-    order by trips desc, pickup_zone
-    limit 10
-""").show()
-PY
+uv run taxi-demo query 'show tables'
+uv run taxi-demo query \
+  'select reason, row_count from data_quality_summary order by row_count desc, reason'
 ```
 
-Query a Parquet release directly, without opening `serving.duckdb`:
+Select a particular arm using the full ID printed by `taxi-demo runs`:
 
 ```bash
-uv run python <<'PY'
-import os
-from pathlib import Path
-
-import duckdb
-
-export = Path(os.environ["DEMO_RUN"]) / "workspace" / "exports" / "trip_facts.parquet"
-duckdb.sql(
-    "select trip_id, pickup_zone, dropoff_zone, total_revenue "
-    "from read_parquet(?) order by trip_id limit 20",
-    params=[str(export)],
-).show()
-PY
+uv run taxi-demo query --run <run-id> \
+  'select trip_id, pickup_zone, dropoff_zone, total_revenue
+   from trip_facts order by trip_id limit 20'
 ```
 
-The fixed Analyst queries are in `$DEMO_RUN/workspace/model-inputs/analyst-questions.sql`.
-The independent results, row counts, and samples are recorded under the finding named
-`frozen Analyst SQL executes` in `attempt-1.verification.json`.
+Execute every fixed Analyst query and print each result separately:
+
+```bash
+uv run taxi-demo query-file contracts/analyst-questions.sql
+uv run taxi-demo query-file --run <run-id> contracts/analyst-questions.sql
+```
+
+`query` and `query-file` open `serving.duckdb` read-only and reject non-query statements.
+They display at most 100 rows per statement by default; use `--max-rows` to raise the limit.
+The independent results are also stored under the finding named `frozen Analyst SQL
+executes` in `attempt-1.verification.json`.
 
 ## Inspect what the model received
 
@@ -153,32 +153,17 @@ release consists of `serving.duckdb` and the five Parquet exports. The commands 
 for an Iceberg table produced outside the current contract, or for a future version of this
 demo that explicitly adds Iceberg publication and verification.
 
-For a table stored at a local or object-storage path, point `ICEBERG_TABLE` at the table
-root containing its `metadata/` directory:
+For a table stored at a local or object-storage path, pass the table root containing its
+`metadata/` directory:
 
 ```bash
-export ICEBERG_TABLE=/absolute/path/to/iceberg/table
-
-uv run python <<'PY'
-import os
-
-import duckdb
-
-connection = duckdb.connect()
-connection.execute("install iceberg")
-connection.execute("load iceberg")
-
-table = os.environ["ICEBERG_TABLE"]
-connection.sql(
-    "select * from iceberg_scan(?, allow_moved_paths = true) limit 20",
-    params=[table],
-).show()
-connection.sql(
-    "select * from iceberg_snapshots(?) order by timestamp_ms desc",
-    params=[table],
-).show()
-PY
+uv run taxi-demo query-iceberg /absolute/path/to/iceberg/table
+uv run taxi-demo query-iceberg s3://bucket/path/to/table \
+  --sql 'select count(*) as rows from {table}'
 ```
+
+The command replaces `{table}` with a read-only `iceberg_scan(...)` call, installs and
+loads DuckDB's Iceberg extension, and rejects write statements.
 
 For an Iceberg REST catalog, create a DuckDB Iceberg secret and attach the catalog. Replace
 the placeholders with the catalog's own warehouse, endpoint, and credentials:

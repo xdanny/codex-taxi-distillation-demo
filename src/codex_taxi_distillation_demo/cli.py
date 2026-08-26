@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import asdict
 from pathlib import Path
 from typing import Annotated
 
@@ -14,6 +15,14 @@ from .doctor import run_doctor
 from .domain import Arm, RunRecord
 from .dspy_optimize import optimize_prompt
 from .fixture import prepare_fixture
+from .inspection import (
+    QueryResult,
+    list_experiments,
+    list_runs,
+    query_iceberg,
+    query_run,
+    resolve_run_workspace,
+)
 from .paths import active_experiment_id, experiment_root, repository_root, start_experiment
 from .report import build_report
 from .verify import verify_candidate
@@ -23,6 +32,17 @@ app = typer.Typer(
     help="Run the portable Codex Taxi analysis, distillation, DSPy, and Qwen demo.",
 )
 console = Console()
+
+
+def print_query_results(results: list[QueryResult]) -> None:
+    for index, result in enumerate(results, start=1):
+        console.print(f"[bold]Query {index}[/bold]: {result.statement}")
+        table = Table(*result.columns)
+        for row in result.rows:
+            table.add_row(*(str(value) for value in row))
+        console.print(table)
+        if result.truncated:
+            console.print("[yellow]Output truncated; raise --max-rows to see more.[/yellow]")
 
 
 def print_run(run: RunRecord) -> None:
@@ -63,6 +83,137 @@ def current() -> None:
             "path": str(experiment_root(repository_root())),
         }
     )
+
+
+@app.command()
+def experiments(
+    json_output: Annotated[
+        bool, typer.Option("--json", help="Print machine-readable JSON")
+    ] = False,
+) -> None:
+    """List every preserved experiment cohort and its completion state."""
+    found = list_experiments(repository_root())
+    if json_output:
+        console.print_json(data=[asdict(experiment) for experiment in found])
+        return
+    for experiment in found:
+        marker = "[green]*[/green]" if experiment.active else " "
+        console.print(f"{marker} [bold]{experiment.experiment_id}[/bold]")
+        console.print(
+            f"  started {experiment.started_at} · {experiment.accepted_runs}/"
+            f"{experiment.completed_runs} accepted · {experiment.interrupted_runs} interrupted"
+            f" · report {'yes' if experiment.report_exists else 'no'}"
+        )
+
+
+@app.command()
+def runs(
+    experiment: str | None = None,
+    json_output: Annotated[
+        bool, typer.Option("--json", help="Print machine-readable JSON")
+    ] = False,
+) -> None:
+    """List completed and interrupted runs in one experiment."""
+    found = list_runs(repository_root(), experiment)
+    if json_output:
+        console.print_json(data=[asdict(run) for run in found])
+        return
+    for run in found:
+        if run.status == "accepted":
+            color = "green"
+        elif run.status == "interrupted":
+            color = "yellow"
+        else:
+            color = "red"
+        console.print(f"[{color}]{run.status}[/{color}] [bold]{run.run_id}[/bold]")
+        detail = f"  {run.arm} · {run.model} · {run.attempts} attempt"
+        if run.attempts != 1:
+            detail += "s"
+        if run.total_tokens:
+            detail += f" · {run.total_tokens:,} tokens"
+        if run.elapsed_seconds:
+            detail += f" · {run.elapsed_seconds:.1f}s"
+        console.print(detail)
+
+
+@app.command()
+def query(
+    sql: Annotated[str, typer.Argument(help="Read-only SQL to execute")],
+    run: Annotated[str | None, typer.Option("--run", help="Completed run ID")] = None,
+    experiment: Annotated[str | None, typer.Option(help="Experiment ID")] = None,
+    max_rows: Annotated[int, typer.Option(min=1, max=1000)] = 100,
+) -> None:
+    """Query a completed run's serving.duckdb; defaults to the latest active run."""
+    selected, workspace = resolve_run_workspace(
+        repository_root(), run_id=run, experiment_id=experiment
+    )
+    console.print(f"Run: [bold]{selected}[/bold]")
+    print_query_results(query_run(workspace, sql, max_rows=max_rows))
+
+
+@app.command("inspect-run")
+def inspect_run(
+    run: Annotated[str | None, typer.Option("--run", help="Completed run ID")] = None,
+    experiment: Annotated[str | None, typer.Option(help="Experiment ID")] = None,
+) -> None:
+    """Print the dbt, data, receipt, and verification paths for one run."""
+    selected, workspace = resolve_run_workspace(
+        repository_root(), run_id=run, experiment_id=experiment
+    )
+    run_directory = workspace.parent
+    console.print_json(
+        data={
+            "runId": selected,
+            "workspace": str(workspace),
+            "dbtProject": str(workspace / "dbt_project.yml"),
+            "dbtProfile": str(workspace / "profiles.yml"),
+            "models": str(workspace / "models"),
+            "tests": str(workspace / "tests"),
+            "macros": str(workspace / "macros"),
+            "manifest": str(workspace / "target" / "manifest.json"),
+            "runResults": str(workspace / "target" / "run_results.json"),
+            "database": str(workspace / "serving.duckdb"),
+            "exports": str(workspace / "exports"),
+            "inputReceipt": str(run_directory / "input-receipt.json"),
+            "request": str(run_directory / "attempt-1.request.json"),
+            "verification": str(run_directory / "attempt-1.verification.json"),
+            "runRecord": str(run_directory / "run.json"),
+        }
+    )
+
+
+@app.command("query-file")
+def query_file(
+    path: Path,
+    run: Annotated[str | None, typer.Option("--run", help="Completed run ID")] = None,
+    experiment: Annotated[str | None, typer.Option(help="Experiment ID")] = None,
+    max_rows: Annotated[int, typer.Option(min=1, max=1000)] = 100,
+) -> None:
+    """Execute every read-only statement in a SQL file against a completed run."""
+    if not path.is_file():
+        raise typer.BadParameter(f"SQL file does not exist: {path}")
+    selected, workspace = resolve_run_workspace(
+        repository_root(), run_id=run, experiment_id=experiment
+    )
+    console.print(f"Run: [bold]{selected}[/bold]\nSQL file: {path}")
+    print_query_results(
+        query_run(workspace, path.read_text(encoding="utf-8"), max_rows=max_rows)
+    )
+
+
+@app.command("query-iceberg")
+def query_iceberg_table(
+    table: str,
+    sql: Annotated[
+        str,
+        typer.Option(
+            help="Read-only SQL containing {table}, replaced with the Iceberg table scan"
+        ),
+    ] = "select * from {table} limit 20",
+    max_rows: Annotated[int, typer.Option(min=1, max=1000)] = 100,
+) -> None:
+    """Query an Iceberg table path with DuckDB's Iceberg extension."""
+    print_query_results(query_iceberg(table, sql, max_rows=max_rows))
 
 
 @app.command()

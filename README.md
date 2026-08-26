@@ -127,6 +127,18 @@ paths, commands for querying the DuckDB and Parquet releases, the model-input re
 Iceberg query examples. The current measured contract publishes DuckDB and Parquet; it does
 not claim that these runs published Iceberg tables.
 
+The shortest inspection path is:
+
+```bash
+uv run taxi-demo experiments
+uv run taxi-demo runs
+uv run taxi-demo inspect-run
+uv run taxi-demo query 'show tables'
+uv run taxi-demo query-file contracts/analyst-questions.sql
+uv run taxi-demo query-iceberg /path/to/iceberg/table \
+  --sql 'select count(*) as rows from {table}'
+```
+
 Each candidate runs from a random temporary directory outside the repository and receives
 only its staged dataset, contracts, and selected project-local skills. The DSPy program runs
 in the harness and passes only its selected repair action to the candidate. An external
