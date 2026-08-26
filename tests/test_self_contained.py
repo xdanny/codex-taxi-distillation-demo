@@ -37,3 +37,13 @@ def test_documented_entrypoint_ignores_user_configuration() -> None:
     assert "--ephemeral --ignore-user-config" in readme
     assert "--sandbox danger-full-access" in readme
     assert "Every candidate model still runs" in readme
+
+
+def test_output_inspection_guide_states_current_iceberg_boundary() -> None:
+    root = Path(__file__).parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    guide = (root / "docs" / "INSPECTING_OUTPUTS.md").read_text(encoding="utf-8")
+    assert "docs/INSPECTING_OUTPUTS.md" in readme
+    assert "does **not** publish Iceberg tables" in guide
+    assert "$DEMO_RUN/workspace/models" in guide
+    assert "iceberg_scan" in guide

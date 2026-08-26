@@ -122,6 +122,11 @@ Generated state stays under `.demo/`:
 - `.demo/experiments/<experiment-id>/artifacts/report/` contains the JSON evidence and the
   readable comparison.
 
+See [Inspect the generated data products](docs/INSPECTING_OUTPUTS.md) for the exact dbt
+paths, commands for querying the DuckDB and Parquet releases, the model-input receipts, and
+Iceberg query examples. The current measured contract publishes DuckDB and Parquet; it does
+not claim that these runs published Iceberg tables.
+
 Each candidate runs from a random temporary directory outside the repository and receives
 only its staged dataset, contracts, and selected project-local skills. The DSPy program runs
 in the harness and passes only its selected repair action to the candidate. An external
