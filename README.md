@@ -73,6 +73,65 @@ The same instruction works in an interactive `codex` session:
 $run-offline-data-loop-demo Run the complete demo.
 ```
 
+## Run local Qwen with the distilled skill
+
+Use this path when you want to show the treatment arm live without rerunning DSPy or the
+other Qwen arms. LM Studio must already be serving `qwen3.8-27b`.
+
+First confirm the model route and inspect the active experiment:
+
+```bash
+uv run taxi-demo doctor
+uv run taxi-demo current
+```
+
+If that experiment already has a distilled skill, start the local Qwen run with:
+
+```bash
+uv run taxi-demo run qwen-skill --repairs 1
+```
+
+This is a real treatment run, not a replay. The harness creates a new isolated candidate
+workspace, mounts the dbt, DuckDB, and distilled Taxi skills under its local
+`.codex/skills/` directory, and explicitly tells Qwen to invoke all three. Qwen is routed
+to LM Studio; Terra is not called by this command. After Qwen exits, the unchanged outside
+verifier runs the dbt build and Analyst queries. If the first candidate fails, `--repairs
+1` gives Qwen the verifier findings and allows one repair attempt.
+
+The command prints the new run ID and whether the result was accepted. Use that full ID to
+show exactly what Qwen received and produced:
+
+```bash
+uv run taxi-demo runs
+uv run taxi-demo inspect-run --run <qwen-skill-run-id>
+uv run taxi-demo query --run <qwen-skill-run-id> 'show tables'
+uv run taxi-demo query-file --run <qwen-skill-run-id> \
+  contracts/analyst-questions.sql
+```
+
+The run receipt records `qwen3.8-27b`, the LM Studio route, the three selected skills, the
+prompt hash, token usage, elapsed time, and each verifier result. The preserved candidate
+workspace contains the generated dbt project and serving database.
+
+### Create the distilled skill first
+
+A fresh clone has no learned artifact. Build one from independent accepted Terra
+candidates before starting the local Qwen treatment:
+
+```bash
+uv run taxi-demo start
+uv run taxi-demo prepare
+uv run taxi-demo teachers --count 3 --parallel 3 --repairs 1
+uv run taxi-demo distill
+uv run taxi-demo run qwen-skill --repairs 1
+```
+
+`distill` requires at least two accepted Terra teacher runs. It publishes the generated
+skill inside the active experiment under
+`artifacts/distilled-skill/taxi-data-product-delivery/`. The final command mounts only that
+published skill into Qwen's candidate workspace; it does not expose the teacher workspaces
+or their source evidence to Qwen.
+
 ## Inspect or resume a run
 
 Every complete invocation starts a new experiment cohort. Old evidence remains available
