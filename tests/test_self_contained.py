@@ -34,6 +34,5 @@ def test_demo_instruction_declares_repository_as_sole_source(demo_root: Path) ->
 def test_documented_entrypoint_ignores_user_configuration() -> None:
     readme = (Path(__file__).parents[1] / "README.md").read_text(encoding="utf-8")
     assert "--ephemeral --ignore-user-config" in readme
-    assert '--add-dir "${CODEX_HOME:-$HOME/.codex}"' in readme
-    assert "sandbox_workspace_write.network_access=true" in readme
-    assert "features.network_proxy=false" in readme
+    assert "--sandbox danger-full-access" in readme
+    assert "Every candidate model still runs" in readme
