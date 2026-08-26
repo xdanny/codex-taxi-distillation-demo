@@ -332,7 +332,12 @@ def evaluate(program: RepairRouter, examples: list[dspy.Example]) -> dict[str, A
     return {"score": sum(row["pass"] for row in rows) / len(rows), "rows": rows}
 
 
-def optimize_prompt(*, root: Path | None = None, max_metric_calls: int = 18) -> Path:
+def optimize_prompt(
+    *,
+    root: Path | None = None,
+    max_metric_calls: int = 18,
+    qwen_model: str = QWEN_MODEL,
+) -> Path:
     repo = root or repository_root()
     output = artifacts_root(repo) / "dspy"
     calls = output / "codex-calls"
@@ -346,7 +351,7 @@ def optimize_prompt(*, root: Path | None = None, max_metric_calls: int = 18) -> 
     development = make_examples(split["development"])
     heldout = make_examples(split["heldout"])
 
-    student_lm = CodexLM(QWEN_MODEL, provider="lmstudio", call_root=calls / "qwen")
+    student_lm = CodexLM(qwen_model, provider="lmstudio", call_root=calls / "qwen")
     reflection_lm = CodexLM(TERRA_MODEL, provider="openai", call_root=calls / "terra")
     dspy.configure(lm=student_lm, adapter=dspy.ChatAdapter(), num_threads=1)
     baseline = RepairRouter()
@@ -391,7 +396,7 @@ def optimize_prompt(*, root: Path | None = None, max_metric_calls: int = 18) -> 
             "optimizer": "dspy.GEPA",
             "dspyVersion": dspy.__version__,
             "reflectionModel": TERRA_MODEL,
-            "studentModel": QWEN_MODEL,
+            "studentModel": qwen_model,
             "maxMetricCalls": max_metric_calls,
             "baselineHeldout": baseline_result,
             "optimizedHeldout": optimized_result,
@@ -409,9 +414,13 @@ def optimize_prompt(*, root: Path | None = None, max_metric_calls: int = 18) -> 
 
 
 def route_repair(
-    findings: dict[str, Any], *, program_path: Path, call_root: Path
+    findings: dict[str, Any],
+    *,
+    program_path: Path,
+    call_root: Path,
+    qwen_model: str = QWEN_MODEL,
 ) -> dict[str, Any]:
-    student_lm = CodexLM(QWEN_MODEL, provider="lmstudio", call_root=call_root)
+    student_lm = CodexLM(qwen_model, provider="lmstudio", call_root=call_root)
     dspy.configure(lm=student_lm, adapter=dspy.ChatAdapter(), num_threads=1)
     program = RepairRouter()
     program.load(program_path)

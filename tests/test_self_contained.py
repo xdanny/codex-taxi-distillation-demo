@@ -40,6 +40,20 @@ def test_documented_entrypoint_ignores_user_configuration() -> None:
     assert "Every candidate model still runs" in readme
 
 
+def test_start_guide_has_executable_newcomer_paths() -> None:
+    guide = (
+        Path(__file__).parents[1] / "docs" / "START_HERE.md"
+    ).read_text(encoding="utf-8")
+
+    assert "Last validated: 2026-08-26" in guide
+    assert "uv sync --frozen --all-groups" in guide
+    assert "taxi-demo query-example terra" in guide
+    assert "taxi-demo use-example-skill" in guide
+    assert "taxi-demo full" in guide
+    assert "Success looks like this:" in guide
+    assert "## Troubleshooting" in guide
+
+
 def test_output_inspection_guide_states_current_iceberg_boundary() -> None:
     root = Path(__file__).parents[1]
     readme = (root / "README.md").read_text(encoding="utf-8")

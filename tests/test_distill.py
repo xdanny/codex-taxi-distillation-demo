@@ -7,7 +7,12 @@ from pathlib import Path
 import pytest
 
 from codex_taxi_distillation_demo.codex_runner import run_arm, run_parallel_teachers
-from codex_taxi_distillation_demo.distill import run_distillation, validate_skill
+from codex_taxi_distillation_demo.distill import (
+    run_distillation,
+    use_example_skill,
+    validate_skill,
+)
+from codex_taxi_distillation_demo.domain import write_json
 from codex_taxi_distillation_demo.dspy_optimize import RepairRouter
 from codex_taxi_distillation_demo.paths import artifacts_root
 from codex_taxi_distillation_demo.report import build_report
@@ -116,3 +121,47 @@ def test_fake_codex_teachers_feed_validated_distillation(
     assert all(record.accepted for record in treatments)
     _, report = build_report(root=demo_root)
     assert report.is_file()
+
+
+def test_checked_in_example_skill_can_seed_a_fresh_local_demo(
+    demo_root: Path, fake_codex: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = (
+        demo_root
+        / "examples"
+        / "qwen-skill"
+        / ".codex"
+        / "skills"
+        / "taxi-data-product-delivery"
+    )
+    source.mkdir(parents=True)
+    (source / "SKILL.md").write_text(
+        "---\nname: taxi-data-product-delivery\ndescription: Checked-in example.\n---\n",
+        encoding="utf-8",
+    )
+    evidence = demo_root / "examples" / "qwen-skill" / "evidence"
+    evidence.mkdir(parents=True)
+    write_json(
+        evidence / "provenance.json",
+        {
+            "runId": "source-qwen-skill",
+            "model": "qwen3.8-27b",
+            "sourceFixture": {"rows": 300},
+        },
+    )
+    monkeypatch.setenv("CODEX_BIN", str(fake_codex))
+
+    skill = use_example_skill(root=demo_root)
+    record = asyncio.run(
+        run_arm(
+            "qwen-skill",
+            root=demo_root,
+            repairs=0,
+            model="qwen3.6-35b-a3b-ud-mlx",
+        )
+    )
+
+    assert (skill / "SKILL.md").is_file()
+    assert record.accepted is True
+    assert record.model == "qwen3.6-35b-a3b-ud-mlx"
+    assert record.treatment_artifacts["skillOrigin"] == "checked-in-example"

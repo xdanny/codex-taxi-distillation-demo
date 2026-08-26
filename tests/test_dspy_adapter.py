@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -53,12 +54,17 @@ def test_codex_lm_is_usable_by_dspy(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         {"findings": [{"name": "outside dbt build passed", "pass": False}]},
         program_path=program_path,
         call_root=tmp_path / "live-router" / "calls",
+        qwen_model="qwen3.6-35b-a3b-ud-mlx",
     )
     assert decision["predictedAction"] == "accept"
     assert decision["appliedAction"] == "inspect_failure"
     assert decision["fallbackApplied"] is True
     assert decision["usage"]["input_tokens"] == 10
     assert decision["usage"]["output_tokens"] == 4
+    request = next((tmp_path / "live-router" / "calls").glob("*/request.json"))
+    assert json.loads(request.read_text(encoding="utf-8"))["model"] == (
+        "qwen3.6-35b-a3b-ud-mlx"
+    )
 
 
 def test_optimize_prompt_publishes_loadable_program_without_synthetic_failures(
@@ -88,8 +94,18 @@ def test_optimize_prompt_publishes_loadable_program_without_synthetic_failures(
 
     monkeypatch.setattr(optimization_module.dspy, "GEPA", FakeGEPA)
 
-    prompt = optimize_prompt(root=demo_root, max_metric_calls=8)
+    prompt = optimize_prompt(
+        root=demo_root,
+        max_metric_calls=8,
+        qwen_model="qwen3.6-35b-a3b-ud-mlx",
+    )
 
     program = artifacts_root(demo_root) / "dspy" / "optimized-program.json"
     assert prompt.is_file() and program.is_file()
     RepairRouter().load(program)
+    optimization = json.loads(
+        (artifacts_root(demo_root) / "dspy" / "optimization.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert optimization["studentModel"] == "qwen3.6-35b-a3b-ud-mlx"

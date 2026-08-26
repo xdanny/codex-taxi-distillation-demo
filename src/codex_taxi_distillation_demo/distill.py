@@ -256,3 +256,48 @@ Do not write outside output/taxi-data-product-delivery.
 
 def run_distillation(*, root: Path | None = None) -> Path:
     return asyncio.run(distill_skill(root=root))
+
+
+def use_example_skill(*, root: Path | None = None) -> Path:
+    """Copy the checked-in distilled skill into the active experiment for a local demo."""
+    repo = root or repository_root()
+    source = (
+        repo
+        / "examples"
+        / "qwen-skill"
+        / ".codex"
+        / "skills"
+        / "taxi-data-product-delivery"
+    )
+    provenance = repo / "examples" / "qwen-skill" / "evidence" / "provenance.json"
+    if not source.is_dir() or not provenance.is_file():
+        raise FileNotFoundError("the checked-in Qwen skill example is incomplete")
+
+    destination = artifacts_root(repo) / "distilled-skill" / "taxi-data-product-delivery"
+    receipt = destination.parent / "example-skill-receipt.json"
+    if destination.exists():
+        if receipt.is_file():
+            return destination
+        raise FileExistsError(
+            "the active experiment already has a newly distilled skill; start a fresh "
+            "experiment before using the checked-in example skill"
+        )
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source, destination)
+    source_record = read_json(provenance)
+    write_json(
+        receipt,
+        {
+            "schemaVersion": 1,
+            "origin": "checked-in-example",
+            "sourceTreatmentRunId": source_record.get("runId"),
+            "sourceTreatmentModel": source_record.get("model"),
+            "sourceFixtureRows": source_record.get("sourceFixture", {}).get("rows"),
+            "claimBoundary": (
+                "This stages a previously extracted skill for a local demonstration. It does "
+                "not repeat distillation or establish transfer in the active experiment."
+            ),
+        },
+    )
+    return destination

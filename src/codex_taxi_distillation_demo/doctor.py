@@ -55,6 +55,21 @@ def lmstudio_check(model: str = QWEN_MODEL) -> dict[str, Any]:
         }
 
 
+def codex_auth_check(codex: str | None) -> dict[str, Any]:
+    if codex is None:
+        return {"pass": False, "command": "codex login status", "error": "Codex not found"}
+    completed = subprocess.run(
+        [codex, "login", "status"], text=True, capture_output=True, check=False
+    )
+    output = (completed.stdout or completed.stderr).strip()
+    return {
+        "pass": completed.returncode == 0,
+        "command": "codex login status",
+        "status": output or "unknown",
+        "exitCode": completed.returncode,
+    }
+
+
 def run_doctor(root: Path | None = None, *, model: str = QWEN_MODEL) -> dict[str, Any]:
     repo = root or repository_root()
     codex = resolve_codex_executable()
@@ -69,6 +84,7 @@ def run_doctor(root: Path | None = None, *, model: str = QWEN_MODEL) -> dict[str
                 "error": "not found on PATH or in an app bundle",
             }
         ),
+        "codexAuth": codex_auth_check(codex),
         "gitRepository": {"pass": (repo / ".git").exists(), "path": str(repo)},
         "lmstudio": lmstudio_check(model),
     }

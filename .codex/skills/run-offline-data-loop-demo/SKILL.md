@@ -24,8 +24,13 @@ resume, inspect `uv run taxi-demo current` and the active cohort first, do not r
 and continue from the first missing or invalid artifact. An interrupted directory without a
 final `run.json` is not a completed arm and must be rerun.
 
-1. Run `uv sync --all-groups`, then `uv run taxi-demo doctor`. Continue only when Codex is
-   available and LM Studio advertises `qwen3.8-27b`.
+Choose one exact LM Studio model ID for the whole cohort. Use an ID supplied in the request;
+otherwise use `qwen3.8-27b`. Pass that same ID to `doctor`, `optimize`, and every Qwen arm.
+Never silently switch model IDs after a cohort starts.
+
+1. Run `uv sync --frozen --all-groups`, then `uv run taxi-demo doctor --model MODEL_ID`.
+   Continue only when Codex is installed and authenticated and LM Studio advertises that
+   exact model ID.
 2. Run `uv run taxi-demo start`, then `uv run taxi-demo prepare`. Never reuse an older active
    experiment for a fresh comparison.
 3. Run `uv run taxi-demo teachers --count 3 --parallel 3 --repairs 1`. These are separate
@@ -36,19 +41,22 @@ final `run.json` is not a completed arm and must be rerun.
    run additional single Terra candidates with
    `uv run taxi-demo run terra --repairs 1`. Stop after two additional candidates and
    report the missing evidence if the minimum still does not exist. Do not manufacture evals.
-5. Run `uv run taxi-demo run qwen-bare --repairs 1` before creating either learned artifact.
-6. Run `uv run taxi-demo optimize --max-metric-calls 18`. Confirm that DSPy is `dspy.GEPA`,
+5. Run `uv run taxi-demo run qwen-bare --model MODEL_ID --repairs 1` before creating either
+   learned artifact.
+6. Run `uv run taxi-demo optimize --model MODEL_ID --max-metric-calls 18`. Confirm that
+   DSPy is `dspy.GEPA`,
    Terra is the reflection model, Qwen is the student, and source-run IDs do not cross the
-   train/development/held-out split. Run `uv run taxi-demo run qwen-dspy --repairs 1` before
-   producing the distilled skill. A routing lift is not a product-completion claim.
+   train/development/held-out split. Run
+   `uv run taxi-demo run qwen-dspy --model MODEL_ID --repairs 1` before producing the
+   distilled skill. A routing lift is not a product-completion claim.
 7. Run `uv run taxi-demo distill`. Read the generated `SKILL.md`, evidence map, validation
    report, release checklist, and symptom-to-repair guide. Continue only when every
    procedure cites real files from at least two accepted source runs. The copied teacher
    evidence belongs in the experiment's separate provenance directory; it must not be
    mounted into a treatment candidate as part of the deployable skill. This establishes a
    testable skill, not transfer. Then run these arms under the same contract and verifier:
-   - `uv run taxi-demo run qwen-skill --repairs 1`
-   - `uv run taxi-demo run qwen-both --repairs 1`
+   - `uv run taxi-demo run qwen-skill --model MODEL_ID --repairs 1`
+   - `uv run taxi-demo run qwen-both --model MODEL_ID --repairs 1`
 8. Run `uv run taxi-demo report` and read both comparison files.
 
 ## Preserve the experiment

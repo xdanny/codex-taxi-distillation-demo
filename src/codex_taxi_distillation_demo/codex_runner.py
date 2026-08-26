@@ -381,6 +381,7 @@ async def run_arm(
                     report,
                     program_path=optimized,
                     call_root=run_directory / f"attempt-{attempt_number}.router" / "calls",
+                    qwen_model=selected_model,
                 )
                 routed_action = str(decision["appliedAction"])
                 router_usage = decision.get("usage", {})
@@ -400,6 +401,19 @@ async def run_arm(
     final_workspace = run_directory / "workspace"
     shutil.move(str(workspace), final_workspace)
     shutil.rmtree(temporary_root, ignore_errors=True)
+    treatment_artifacts: dict[str, str] = {}
+    if optimized is not None:
+        treatment_artifacts["dspyProgramSha256"] = sha256_file(optimized)
+    if distilled is not None:
+        example_receipt = distilled.parent / "example-skill-receipt.json"
+        treatment_artifacts["skillOrigin"] = (
+            "checked-in-example"
+            if example_receipt.is_file()
+            else "distilled-in-active-experiment"
+        )
+        if example_receipt.is_file():
+            treatment_artifacts["exampleSkillReceiptSha256"] = sha256_file(example_receipt)
+
     record = RunRecord(
         schema_version=1,
         experiment_id=active_experiment_id(repo),
@@ -413,9 +427,7 @@ async def run_arm(
         input_receipt_sha256=sha256_file(input_receipt),
         prompt_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
         selected_skills=selected_skills,
-        treatment_artifacts=(
-            {"dspyProgramSha256": sha256_file(optimized)} if optimized is not None else {}
-        ),
+        treatment_artifacts=treatment_artifacts,
         attempts=attempts,
         accepted=bool(attempts and attempts[-1].accepted),
     )

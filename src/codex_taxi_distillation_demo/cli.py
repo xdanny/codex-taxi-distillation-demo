@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .codex_runner import QWEN_MODEL, run_arm, run_parallel_teachers
-from .distill import run_distillation
+from .distill import run_distillation, use_example_skill
 from .doctor import run_doctor
 from .domain import Arm, Example, RunRecord, read_json
 from .dspy_optimize import optimize_prompt
@@ -321,12 +321,28 @@ def distill() -> None:
     console.print(f"Published distilled skill: [bold]{path}[/bold]")
 
 
+@app.command("use-example-skill")
+def use_example_skill_command() -> None:
+    """Use the checked-in distilled skill for a quick local Qwen demonstration."""
+    path = use_example_skill(root=repository_root())
+    console.print(
+        f"Prepared checked-in example skill: [bold]{path}[/bold]\n"
+        "This skips fresh distillation and is recorded as checked-in-example provenance."
+    )
+
+
 @app.command()
 def optimize(
     max_metric_calls: Annotated[int, typer.Option(min=8, max=200)] = 18,
+    model: Annotated[
+        str,
+        typer.Option(help="Exact LM Studio model ID to use as the DSPy student"),
+    ] = QWEN_MODEL,
 ) -> None:
     """Run genuine DSPy GEPA with Qwen as student and Terra as reflection LM."""
-    path = optimize_prompt(root=repository_root(), max_metric_calls=max_metric_calls)
+    path = optimize_prompt(
+        root=repository_root(), max_metric_calls=max_metric_calls, qwen_model=model
+    )
     console.print(f"Published DSPy program and readable instruction: [bold]{path}[/bold]")
 
 
@@ -375,9 +391,13 @@ def full(
     parallel: Annotated[int, typer.Option(min=1)] = 3,
     repairs: Annotated[int, typer.Option(min=0, max=2)] = 1,
     max_metric_calls: Annotated[int, typer.Option(min=8, max=200)] = 18,
+    model: Annotated[
+        str,
+        typer.Option(help="Exact LM Studio model ID for every Qwen and DSPy student call"),
+    ] = QWEN_MODEL,
 ) -> None:
     """Run the complete demonstration from fresh candidates to comparison report."""
-    preflight = run_doctor()
+    preflight = run_doctor(model=model)
     if not preflight["pass"]:
         console.print_json(data=preflight)
         raise typer.Exit(1)
@@ -404,12 +424,38 @@ def full(
         raise RuntimeError(
             "full demo stopped after five candidates without three accepted Terra sources"
         )
-    print_run(asyncio.run(run_arm("qwen-bare", root=repository_root(), repairs=repairs)))
-    optimize_prompt(root=repository_root(), max_metric_calls=max_metric_calls)
-    print_run(asyncio.run(run_arm("qwen-dspy", root=repository_root(), repairs=repairs)))
+    print_run(
+        asyncio.run(
+            run_arm(
+                "qwen-bare", root=repository_root(), repairs=repairs, model=model
+            )
+        )
+    )
+    optimize_prompt(
+        root=repository_root(), max_metric_calls=max_metric_calls, qwen_model=model
+    )
+    print_run(
+        asyncio.run(
+            run_arm(
+                "qwen-dspy", root=repository_root(), repairs=repairs, model=model
+            )
+        )
+    )
     run_distillation(root=repository_root())
-    print_run(asyncio.run(run_arm("qwen-skill", root=repository_root(), repairs=repairs)))
-    print_run(asyncio.run(run_arm("qwen-both", root=repository_root(), repairs=repairs)))
+    print_run(
+        asyncio.run(
+            run_arm(
+                "qwen-skill", root=repository_root(), repairs=repairs, model=model
+            )
+        )
+    )
+    print_run(
+        asyncio.run(
+            run_arm(
+                "qwen-both", root=repository_root(), repairs=repairs, model=model
+            )
+        )
+    )
     _, markdown_path = build_report(root=repository_root())
     console.print(f"Complete comparison: [bold]{markdown_path}[/bold]")
 

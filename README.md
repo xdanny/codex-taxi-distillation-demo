@@ -1,5 +1,7 @@
 # Codex Taxi Distillation Demo
 
+[![CI](https://github.com/xdanny/codex-taxi-distillation-demo/actions/workflows/ci.yml/badge.svg)](https://github.com/xdanny/codex-taxi-distillation-demo/actions/workflows/ci.yml)
+
 This repository runs one data-engineering task through several model treatments, then
 compares the expense of producing an accepted result. Codex is the only agent interface:
 Python prepares evidence and checks outputs, Terra and Qwen do the model work, and no
@@ -11,6 +13,31 @@ large-dataset performance. Each candidate must use dbt to turn the staged trips 
 quarantined trips, hourly pickup metrics, daily route metrics, and a data-quality summary.
 An outside verifier reruns dbt, checks every row against the validity rules, recomputes the
 metrics, executes three fixed Analyst queries, and checks the Parquet exports.
+
+## Start here
+
+If this is your first time in the repository, follow
+[`docs/START_HERE.md`](docs/START_HERE.md). It separates three paths:
+
+1. inspect the included accepted products without making model calls;
+2. run one local Qwen candidate with the checked-in distilled skill;
+3. create fresh Terra evidence, distill a new skill, optimize a DSPy router, and compare
+   all Qwen treatments.
+
+The shortest working path is:
+
+```bash
+git clone https://github.com/xdanny/codex-taxi-distillation-demo.git
+cd codex-taxi-distillation-demo
+uv sync --frozen --all-groups
+uv run taxi-demo query-example terra 'select count(*) as accepted_rows from trip_facts'
+uv run taxi-demo query-example qwen-skill \
+  'select reason, row_count from data_quality_summary order by reason'
+```
+
+The first query returns `995` accepted rows. The second accounts for the five deliberately
+invalid rows. Reaching those results proves that the installation and included DuckDB
+products work; it does not run or compare the models.
 
 ## What the experiment runs
 
@@ -31,16 +58,18 @@ maintenance, concurrency, and human-review receipts are supplied.
 
 ## Prerequisites
 
-- `uv`
-- Codex CLI, authenticated for hosted Terra calls
+- Git
+- [`uv`](https://docs.astral.sh/uv/getting-started/installation/)
+- [Codex CLI](https://developers.openai.com/codex/cli/), authenticated for hosted Terra
+  calls (`codex login status`)
 - LM Studio at `http://127.0.0.1:1234/v1`. The complete demo defaults to the exact
-  model ID `qwen3.8-27b`; individual Qwen arms can use another advertised model ID
-  through `--model`.
+  model ID `qwen3.8-27b`; the full demo and individual Qwen arms can use another
+  advertised model ID through `--model`.
 
 Confirm the local setup before spending model time:
 
 ```bash
-uv sync --all-groups
+uv sync --frozen --all-groups
 uv run taxi-demo doctor
 ```
 
@@ -52,7 +81,10 @@ uv run taxi-demo doctor --model qwen3.6-35b-a3b-ud-mlx
 ```
 
 The doctor prints the installed commands, the LM Studio endpoint, every advertised model
-ID, and whether the required Qwen ID matches.
+ID, Codex authentication state, and whether the required Qwen ID matches. The repository
+does not download or load an LLM for you. See the
+[LM Studio Codex guide](https://lmstudio.ai/docs/integrations/codex) if the server or model
+is not ready.
 
 ## Run the complete demo through one agent instruction
 
@@ -82,10 +114,16 @@ The same instruction works in an interactive `codex` session:
 $run-offline-data-loop-demo Run the complete demo.
 ```
 
+To use another Qwen model loaded in LM Studio, include its exact advertised ID:
+
+```text
+$run-offline-data-loop-demo Run the complete demo using qwen3.6-35b-a3b-ud-mlx.
+```
+
 ## Run local Qwen with the distilled skill
 
 Use this path when you want to show the treatment arm live without rerunning DSPy or the
-other Qwen arms. LM Studio must already be serving `qwen3.8-27b`.
+other Qwen arms. By default, LM Studio must already be serving `qwen3.8-27b`.
 
 First confirm the model route and inspect the active experiment:
 
@@ -140,9 +178,9 @@ uv run taxi-demo query-file --run <qwen-skill-run-id> \
   contracts/analyst-questions.sql
 ```
 
-The run receipt records `qwen3.8-27b`, the LM Studio route, the three selected skills, the
-prompt hash, token usage, elapsed time, and each verifier result. The preserved candidate
-workspace contains the generated dbt project and serving database.
+The run receipt records the exact selected model ID, the LM Studio route, the three selected
+skills, the prompt hash, token usage, elapsed time, and each verifier result. The preserved
+candidate workspace contains the generated dbt project and serving database.
 
 While a candidate is running, the terminal streams its Codex task list, agent messages,
 commands, command output, errors, and completion usage. The same untouched JSON events are
@@ -166,6 +204,24 @@ skill inside the active experiment under
 `artifacts/distilled-skill/taxi-data-product-delivery/`. The final command mounts only that
 published skill into Qwen's candidate workspace; it does not expose the teacher workspaces
 or their source evidence to Qwen.
+
+### Use the checked-in skill for a shorter local demonstration
+
+To show a real local Qwen build without first paying for new Terra teacher runs:
+
+```bash
+uv run taxi-demo doctor --model qwen3.6-35b-a3b-ud-mlx
+uv run taxi-demo start
+uv run taxi-demo prepare
+uv run taxi-demo use-example-skill
+uv run taxi-demo run qwen-skill \
+  --model qwen3.6-35b-a3b-ud-mlx \
+  --repairs 1
+```
+
+Replace the model ID with the exact ID shown by your LM Studio server. The run receipt
+records `skillOrigin` as `checked-in-example`, so this route cannot be mistaken for fresh
+distillation or evidence of transfer.
 
 ## Inspect accepted Terra and Qwen dbt examples
 
@@ -245,14 +301,16 @@ Then run or resume the remaining phases in this order:
 
 ```bash
 uv run taxi-demo teachers --count 3 --parallel 3 --repairs 1
-uv run taxi-demo run qwen-bare --repairs 1
-uv run taxi-demo optimize --max-metric-calls 18
-uv run taxi-demo run qwen-dspy --repairs 1
+uv run taxi-demo run qwen-bare --model YOUR_MODEL_ID --repairs 1
+uv run taxi-demo optimize --model YOUR_MODEL_ID --max-metric-calls 18
+uv run taxi-demo run qwen-dspy --model YOUR_MODEL_ID --repairs 1
 uv run taxi-demo distill
-uv run taxi-demo run qwen-skill --repairs 1
-uv run taxi-demo run qwen-both --repairs 1
+uv run taxi-demo run qwen-skill --model YOUR_MODEL_ID --repairs 1
+uv run taxi-demo run qwen-both --model YOUR_MODEL_ID --repairs 1
 uv run taxi-demo report
 ```
+
+Replace `YOUR_MODEL_ID` with the same exact LM Studio ID that passed `taxi-demo doctor`.
 
 Generated state stays under `.demo/`:
 
