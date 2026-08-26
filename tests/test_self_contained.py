@@ -21,3 +21,11 @@ def test_runtime_has_no_external_hyperplane_reference(demo_root: Path) -> None:
                 assert demo_root in path.resolve().parents
             if path.is_file():
                 assert forbidden not in path.read_text(encoding="utf-8", errors="ignore").lower()
+
+
+def test_demo_instruction_declares_repository_as_sole_source(demo_root: Path) -> None:
+    instruction = (
+        demo_root / ".codex" / "skills" / "run-offline-data-loop-demo" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    assert "sole source of truth" in instruction
+    assert "Do not inspect or use\nglobal agent memory" in instruction

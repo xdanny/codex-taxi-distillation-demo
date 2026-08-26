@@ -9,6 +9,14 @@ Deliver one inspectable comparison from fresh Taxi candidates. The loop is compl
 when the unchanged verifier has judged every candidate and the active experiment's
 `artifacts/report/comparison.md` exists.
 
+## Repository boundary
+
+This repository is the complete demo and the sole source of truth. Do not inspect or use
+global agent memory, sibling repositories, or artifacts from earlier
+experiments. Do not search outside this repository except to execute the installed `uv` and
+`codex` commands and to query the configured LM Studio endpoint. Every model input, skill,
+fixture, verifier, learned artifact, and report must originate here.
+
 ## Execute
 
 1. Run `uv sync --all-groups`, then `uv run taxi-demo doctor`. Continue only when Codex is
