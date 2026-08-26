@@ -1,0 +1,15 @@
+{
+  "classification": "deterministic synthetic NYC Yellow Taxi-shaped fixture",
+  "files": {
+    "taxi_trips.parquet": {
+      "rows": 1000,
+      "sha256": "3b9045916d204be2c67218b47a8f2610b985b6205009a86745d0d2c3573c78f0"
+    },
+    "taxi_zones.csv": {
+      "rows": 7,
+      "sha256": "9ef3bf3fd0361580eb5ed96e7d6b50ca6326bb1b7eda5913008b784eea75fe53"
+    }
+  },
+  "fixtureRevision": "taxi-shaped-v2-1000-rows",
+  "schemaVersion": 1
+}

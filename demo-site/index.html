@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Taxi model run replays</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="masthead">
+      <span>Engineering Data Loops</span>
+      <span id="experiment-label">Loading preserved experiment…</span>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="kicker">One contract · three completed runs</p>
+        <h1>Watch each model build the same Taxi data product.</h1>
+        <p class="lede">
+          Bare Qwen, Qwen with a distilled delivery skill, and Terra receive the same
+          staged Taxi data and acceptance checks. Choose a run to inspect what it was
+          given, what it executed, and whether the outside verifier accepted the result.
+        </p>
+      </section>
+
+      <section class="selector" id="selector" aria-label="Choose a model run"></section>
+
+      <section class="player-shell" aria-live="polite">
+        <div class="player-header">
+          <div>
+            <p class="eyebrow">Edited evidence replay</p>
+            <h2 id="active-title">Loading…</h2>
+          </div>
+          <div class="player-actions">
+            <label for="take-select">Take <select id="take-select"></select></label>
+            <button id="stage-button" type="button">Stage mode</button>
+          </div>
+        </div>
+        <video id="video" controls preload="metadata" playsinline></video>
+        <div class="receipt" id="receipt"></div>
+      </section>
+
+      <section class="comparison">
+        <div class="section-heading">
+          <p class="kicker">Observed receipts</p>
+          <h2>Compare completed runs without turning one experiment into a general claim.</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Treatment</th>
+                <th>Take</th>
+                <th>Model route</th>
+                <th>Mounted skills</th>
+                <th>Elapsed</th>
+                <th>Input + output tokens</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody id="comparison-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="evidence-grid">
+        <article class="boundary good">
+          <p class="kicker">What the videos establish</p>
+          <p>
+            Each named run completed the Taxi contract, preserved its model inputs and raw
+            Codex events, and passed the unchanged verifier after the model exited.
+          </p>
+        </article>
+        <article class="boundary caution">
+          <p class="kicker">What they do not establish</p>
+          <p>
+            Edited replay timing is not live execution. One accepted run per treatment does
+            not prove that the distilled skill caused better quality, lower cost, or general
+            transfer to another dataset.
+          </p>
+        </article>
+      </section>
+
+      <section class="downloads">
+        <div class="section-heading">
+          <p class="kicker">Open the evidence behind the screen</p>
+          <h2 id="download-title">Files for the selected run</h2>
+        </div>
+        <div id="download-list" class="download-list"></div>
+      </section>
+    </main>
+
+    <footer>
+      <span>NYC Yellow Taxi-shaped deterministic fixture</span>
+      <span>Local player · no workflow server</span>
+    </footer>
+    <script src="app.js" defer></script>
+  </body>
+</html>

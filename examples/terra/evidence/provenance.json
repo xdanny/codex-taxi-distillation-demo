@@ -1,0 +1,25 @@
+{
+  "accepted": true,
+  "arm": "terra",
+  "attemptCount": 1,
+  "elapsedSeconds": 185.9237357499078,
+  "experimentId": "20260826-060242-41bf1a61",
+  "inputReceiptSha256": "454b7c15453e5e3a7231676e4fb6b4464fbaabcf3be0034cb8d25537fcb2f4c8",
+  "model": "gpt-5.6-terra",
+  "promptSha256": "749bc84ad6c62a1cd4a0710d045829b4929ef1f6cb763fa430e789963bb39b07",
+  "provider": "openai",
+  "runId": "20260826-135934-terra-8dfdf37a",
+  "selectedSkills": [
+    "dbt-data-product",
+    "duckdb-analysis"
+  ],
+  "sourceFixture": {
+    "classification": "deterministic synthetic NYC Yellow Taxi-shaped fixture",
+    "rows": 300
+  },
+  "usage": {
+    "cachedInputTokens": 533504,
+    "inputTokens": 571519,
+    "outputTokens": 7169
+  }
+}

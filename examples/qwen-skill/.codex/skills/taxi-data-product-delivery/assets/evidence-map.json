@@ -1,0 +1,107 @@
+{
+  "sourceRunIds": [
+    "20260826-060257-terra-06f6e3f5",
+    "20260826-060257-terra-7a2a48ec",
+    "20260826-060257-terra-de4fcb8f"
+  ],
+  "procedures": [
+    {
+      "name": "Recover from an inaccessible default uv cache",
+      "instruction": "When the default uv cache is inaccessible, set UV_CACHE_DIR to a writable temporary directory and continue the local inspection and dbt workflow without changing product inputs or controls.",
+      "sourceRuns": [
+        "20260826-060257-terra-06f6e3f5",
+        "20260826-060257-terra-7a2a48ec",
+        "20260826-060257-terra-de4fcb8f"
+      ],
+      "evidenceFiles": [
+        "20260826-060257-terra-06f6e3f5/attempt-1.events.jsonl",
+        "20260826-060257-terra-7a2a48ec/attempt-1.events.jsonl",
+        "20260826-060257-terra-de4fcb8f/attempt-1.events.jsonl"
+      ]
+    },
+    {
+      "name": "Inspect staged sources and release controls",
+      "instruction": "Read the product contract and frozen Analyst SQL, then query the staged Parquet trips and CSV zones directly before designing transformations. Use deterministic ORDER BY clauses for persisted or reported query results.",
+      "sourceRuns": [
+        "20260826-060257-terra-06f6e3f5",
+        "20260826-060257-terra-7a2a48ec",
+        "20260826-060257-terra-de4fcb8f"
+      ],
+      "evidenceFiles": [
+        "20260826-060257-terra-06f6e3f5/attempt-1.workspace/model-inputs/product-contract.json",
+        "20260826-060257-terra-7a2a48ec/attempt-1.events.jsonl",
+        "20260826-060257-terra-de4fcb8f/attempt-1.workspace/model-inputs/analyst-questions.sql"
+      ]
+    },
+    {
+      "name": "Classify every trip and retain quarantine reason precedence",
+      "instruction": "Split trips into accepted and quarantined relations without silently dropping rows. Apply validity checks in the contract's prescribed order and store the first applicable reason for each quarantined trip.",
+      "sourceRuns": [
+        "20260826-060257-terra-06f6e3f5",
+        "20260826-060257-terra-7a2a48ec",
+        "20260826-060257-terra-de4fcb8f"
+      ],
+      "evidenceFiles": [
+        "20260826-060257-terra-06f6e3f5/attempt-1.workspace/models/staging/stg_trips_with_reason.sql",
+        "20260826-060257-terra-7a2a48ec/attempt-1.workspace/models/trip_facts.sql",
+        "20260826-060257-terra-de4fcb8f/attempt-1.workspace/models/intermediate/int_trip_classification.sql"
+      ]
+    },
+    {
+      "name": "Materialize the complete serving contract",
+      "instruction": "Materialize the five required serving tables and derive the contract columns and metrics from accepted and quarantined relations.",
+      "sourceRuns": [
+        "20260826-060257-terra-06f6e3f5",
+        "20260826-060257-terra-7a2a48ec",
+        "20260826-060257-terra-de4fcb8f"
+      ],
+      "evidenceFiles": [
+        "20260826-060257-terra-06f6e3f5/attempt-1.workspace/models/serving/trip_facts.sql",
+        "20260826-060257-terra-7a2a48ec/attempt-1.workspace/models/daily_route_metrics.sql",
+        "20260826-060257-terra-de4fcb8f/attempt-1.workspace/models/marts/data_quality_summary.sql"
+      ]
+    },
+    {
+      "name": "Test and account for every row with dbt",
+      "instruction": "Add tests for keys, accepted values, non-negative or positive measures, and raw equals accepted plus quarantined. Run dbt build with --profiles-dir . and require target/run_results.json with no failures.",
+      "sourceRuns": [
+        "20260826-060257-terra-06f6e3f5",
+        "20260826-060257-terra-7a2a48ec",
+        "20260826-060257-terra-de4fcb8f"
+      ],
+      "evidenceFiles": [
+        "20260826-060257-terra-06f6e3f5/attempt-1.workspace/tests/assert_row_accounting.sql",
+        "20260826-060257-terra-7a2a48ec/attempt-1.verification.json",
+        "20260826-060257-terra-de4fcb8f/run_results.json"
+      ]
+    },
+    {
+      "name": "Publish and independently read the DuckDB and Parquet release",
+      "instruction": "Publish serving.duckdb and one Parquet export per required serving table. In a new DuckDB connection, read the database and every export and verify each export matches its serving table.",
+      "sourceRuns": [
+        "20260826-060257-terra-06f6e3f5",
+        "20260826-060257-terra-7a2a48ec",
+        "20260826-060257-terra-de4fcb8f"
+      ],
+      "evidenceFiles": [
+        "20260826-060257-terra-06f6e3f5/attempt-1.final.md",
+        "20260826-060257-terra-7a2a48ec/attempt-1.verification.json",
+        "20260826-060257-terra-de4fcb8f/attempt-1.final.md"
+      ]
+    },
+    {
+      "name": "Run frozen Analyst SQL and use verifier evidence as the acceptance gate",
+      "instruction": "Run every frozen Analyst SQL statement against the final serving database. If the verifier reports a finding, repair the implicated implementation, rerun the build and release checks, and rerun the verifier without changing protected inputs or controls.",
+      "sourceRuns": [
+        "20260826-060257-terra-06f6e3f5",
+        "20260826-060257-terra-7a2a48ec",
+        "20260826-060257-terra-de4fcb8f"
+      ],
+      "evidenceFiles": [
+        "20260826-060257-terra-06f6e3f5/attempt-1.workspace/model-inputs/review-rubric.md",
+        "20260826-060257-terra-7a2a48ec/attempt-1.verification.json",
+        "20260826-060257-terra-de4fcb8f/attempt-1.workspace/model-inputs/analyst-questions.sql"
+      ]
+    }
+  ]
+}

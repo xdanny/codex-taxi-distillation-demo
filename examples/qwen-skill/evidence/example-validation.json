@@ -1,0 +1,166 @@
+{
+  "accepted": true,
+  "findings": [
+    {
+      "evidence": {
+        "exitCode": 0,
+        "stderrTail": "",
+        "stdoutTail": ".................. [RUN]\n\u001b[0m19:09:00  44 of 50 START test not_null_daily_route_metrics_trip_count .................... [RUN]\n\u001b[0m19:09:00  43 of 50 PASS not_null_daily_route_metrics_service_date ........................ [\u001b[32mPASS\u001b[0m in 0.01s]\n\u001b[0m19:09:00  44 of 50 PASS not_null_daily_route_metrics_trip_count .......................... [\u001b[32mPASS\u001b[0m in 0.01s]\n\u001b[0m19:09:00  45 of 50 START test expression_is_true_hourly_zone_metrics_total_revenue__total_revenue_0  [RUN]\n\u001b[0m19:09:00  46 of 50 START test expression_is_true_hourly_zone_metrics_trip_count__trip_count_0  [RUN]\n\u001b[0m19:09:00  45 of 50 PASS expression_is_true_hourly_zone_metrics_total_revenue__total_revenue_0  [\u001b[32mPASS\u001b[0m in 0.01s]\n\u001b[0m19:09:00  46 of 50 PASS expression_is_true_hourly_zone_metrics_trip_count__trip_count_0 .. [\u001b[32mPASS\u001b[0m in 0.01s]\n\u001b[0m19:09:00  47 of 50 START test not_null_hourly_zone_metrics_pickup_hour ................... [RUN]\n\u001b[0m19:09:00  48 of 50 START test not_null_hourly_zone_metrics_pickup_zone ................... [RUN]\n\u001b[0m19:09:00  48 of 50 PASS not_null_hourly_zone_metrics_pickup_zone ......................... [\u001b[32mPASS\u001b[0m in 0.01s]\n\u001b[0m19:09:00  49 of 50 START test not_null_hourly_zone_metrics_total_revenue ................. [RUN]\n\u001b[0m19:09:00  47 of 50 PASS not_null_hourly_zone_metrics_pickup_hour ......................... [\u001b[32mPASS\u001b[0m in 0.01s]\n\u001b[0m19:09:00  50 of 50 START test not_null_hourly_zone_metrics_trip_count .................... [RUN]\n\u001b[0m19:09:00  49 of 50 PASS not_null_hourly_zone_metrics_total_revenue ....................... [\u001b[32mPASS\u001b[0m in 0.01s]\n\u001b[0m19:09:00  50 of 50 PASS not_null_hourly_zone_metrics_trip_count .......................... [\u001b[32mPASS\u001b[0m in 0.01s]\n\u001b[0m19:09:00  \n\u001b[0m19:09:00  Finished running 5 table models, 42 data tests, 3 view models in 0 hours 0 minutes and 0.39 seconds (0.39s).\n\u001b[0m19:09:00  \n\u001b[0m19:09:00  \u001b[32mCompleted successfully\u001b[0m\n\u001b[0m19:09:00  \n\u001b[0m19:09:00  Done. PASS=50 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=50\n"
+      },
+      "name": "outside dbt build passed",
+      "pass": true
+    },
+    {
+      "evidence": {
+        "missing": []
+      },
+      "name": "required candidate files exist",
+      "pass": true
+    },
+    {
+      "evidence": {
+        "failureCount": 0,
+        "resultCount": 50
+      },
+      "name": "dbt build and tests passed",
+      "pass": true
+    },
+    {
+      "evidence": {
+        "missing": []
+      },
+      "name": "five serving tables exist",
+      "pass": true
+    },
+    {
+      "evidence": {
+        "dailyMetrics": 0,
+        "hourlyMetrics": 0,
+        "qualitySummary": 0,
+        "quarantine": 0,
+        "tripFacts": 0
+      },
+      "name": "serving rows and metrics match the contract",
+      "pass": true
+    },
+    {
+      "evidence": {
+        "accepted": 995,
+        "quarantined": 5,
+        "raw": 1000
+      },
+      "name": "every input row is accounted for",
+      "pass": true
+    },
+    {
+      "evidence": {
+        "errors": {},
+        "queries": {
+          "busiest_pickup_hours": {
+            "rowCount": 10,
+            "sample": [
+              [
+                "Midtown Center",
+                9,
+                9,
+                435.45
+              ],
+              [
+                "Alphabet City",
+                13,
+                9,
+                384.36
+              ],
+              [
+                "Battery Park City",
+                3,
+                9,
+                379.68
+              ]
+            ]
+          },
+          "quarantine_reasons": {
+            "rowCount": 4,
+            "sample": [
+              [
+                "invalid_duration",
+                2
+              ],
+              [
+                "negative_distance",
+                1
+              ],
+              [
+                "negative_fare",
+                1
+              ]
+            ]
+          },
+          "slowest_daily_routes": {
+            "rowCount": 10,
+            "sample": [
+              [
+                "2025-01-11",
+                "East Village",
+                "Midtown Center",
+                14,
+                31.71
+              ],
+              [
+                "2025-01-09",
+                "Battery Park City",
+                "Midtown Center",
+                14,
+                31.43
+              ],
+              [
+                "2025-01-10",
+                "Times Sq/Theatre District",
+                "Midtown Center",
+                14,
+                31.43
+              ]
+            ]
+          }
+        }
+      },
+      "name": "frozen Analyst SQL executes",
+      "pass": true
+    },
+    {
+      "evidence": {
+        "counts": {
+          "daily_route_metrics": {
+            "contentDelta": 0,
+            "parquet": 72,
+            "serving": 72
+          },
+          "data_quality_summary": {
+            "contentDelta": 0,
+            "parquet": 4,
+            "serving": 4
+          },
+          "hourly_zone_metrics": {
+            "contentDelta": 0,
+            "parquet": 144,
+            "serving": 144
+          },
+          "quarantined_trips": {
+            "contentDelta": 0,
+            "parquet": 5,
+            "serving": 5
+          },
+          "trip_facts": {
+            "contentDelta": 0,
+            "parquet": 995,
+            "serving": 995
+          }
+        },
+        "errors": {}
+      },
+      "name": "Parquet exports match serving tables",
+      "pass": true
+    }
+  ],
+  "schemaVersion": 1
+}

@@ -9,6 +9,8 @@ import duckdb
 from .domain import sha256_file, write_json
 from .paths import repository_root, state_root
 
+DEFAULT_TRIP_ROWS = 1_000
+
 
 def prepare_fixture(root: Path | None = None, *, force: bool = False) -> Path:
     repo = root or repository_root()
@@ -50,7 +52,7 @@ def prepare_fixture(root: Path | None = None, *, force: bool = False) -> Path:
                  round(7.0 + (i % 51) * 1.17, 2) as fare_amount,
                  round((i % 12) * 0.65, 2) as tip_amount,
                  1 + (i % 4) as passenger_count
-          from range(0, 300) as r(i)
+          from range(0, 1000) as r(i)
         )
         select
           i::bigint as trip_id,
@@ -70,10 +72,13 @@ def prepare_fixture(root: Path | None = None, *, force: bool = False) -> Path:
 
     manifest = {
         "schemaVersion": 1,
-        "fixtureRevision": "taxi-shaped-v1",
+        "fixtureRevision": "taxi-shaped-v2-1000-rows",
         "classification": "deterministic synthetic NYC Yellow Taxi-shaped fixture",
         "files": {
-            "taxi_trips.parquet": {"sha256": sha256_file(trips_path), "rows": 300},
+            "taxi_trips.parquet": {
+                "sha256": sha256_file(trips_path),
+                "rows": DEFAULT_TRIP_ROWS,
+            },
             "taxi_zones.csv": {"sha256": sha256_file(zones_path), "rows": len(zones)},
         },
     }

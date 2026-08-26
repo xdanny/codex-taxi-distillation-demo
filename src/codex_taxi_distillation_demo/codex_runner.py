@@ -6,6 +6,7 @@ import json
 import os
 import shlex
 import shutil
+import sys
 import tempfile
 import time
 import uuid
@@ -20,6 +21,27 @@ from .workspace import build_prompt, prepare_run_workspace, repair_prompt
 
 TERRA_MODEL = "gpt-5.6-terra"
 QWEN_MODEL = "qwen3.8-27b"
+CODEX_BUNDLE_CANDIDATES = (
+    Path("/Applications/ChatGPT.app/Contents/Resources/codex"),
+    Path.home() / "Applications/ChatGPT.app/Contents/Resources/codex",
+    Path("/Applications/Codex.app/Contents/Resources/codex"),
+    Path.home() / "Applications/Codex.app/Contents/Resources/codex",
+)
+
+
+def resolve_codex_executable() -> str | None:
+    configured = os.environ.get("CODEX_BIN")
+    if configured:
+        return shutil.which(configured)
+
+    on_path = shutil.which("codex")
+    if on_path:
+        return on_path
+
+    for candidate in CODEX_BUNDLE_CANDIDATES:
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
 
 
 def now() -> str:
@@ -53,8 +75,62 @@ def parse_usage(events: str) -> Usage:
     return total
 
 
+def format_live_event(line: str) -> list[str]:
+    try:
+        event = json.loads(line)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(event, dict):
+        return []
+
+    item = event.get("item")
+    if isinstance(item, dict):
+        item_type = item.get("type")
+        event_type = event.get("type")
+        if item_type == "agent_message" and event_type == "item.completed":
+            text = str(item.get("text", "")).strip()
+            return [f"\nCodex: {text}"] if text else []
+        if item_type == "todo_list":
+            tasks = item.get("items")
+            if not isinstance(tasks, list):
+                return []
+            rendered = ["\nCodex tasks:"]
+            for task in tasks:
+                if not isinstance(task, dict):
+                    continue
+                marker = "x" if task.get("completed") else " "
+                rendered.append(f"  [{marker}] {task.get('text', '')}")
+            return rendered
+        if item_type == "command_execution" and event_type == "item.started":
+            command = str(item.get("command", "")).strip()
+            return [f"\n→ {command}"] if command else []
+        if item_type == "command_execution" and event_type == "item.completed":
+            output = str(item.get("aggregated_output", "")).rstrip()
+            exit_code = item.get("exit_code")
+            marker = "✓" if exit_code == 0 else "✗"
+            rendered = [output] if output else []
+            rendered.append(f"{marker} command exited {exit_code}")
+            return rendered
+        if item_type == "error" and event_type == "item.completed":
+            return [f"\n! {item.get('message', 'Codex reported an error')}"]
+
+    if event.get("type") == "turn.completed":
+        usage = event.get("usage")
+        if isinstance(usage, dict):
+            total = int(usage.get("input_tokens", 0) or 0) + int(
+                usage.get("output_tokens", 0) or 0
+            )
+            return [f"\n✓ Codex turn completed · {total:,} input + output tokens"]
+    return []
+
+
 def command_for(*, model: str, provider: str, workspace: Path, output: Path) -> list[str]:
-    codex = os.environ.get("CODEX_BIN", "codex")
+    configured_codex = os.environ.get("CODEX_BIN", "codex")
+    codex = resolve_codex_executable()
+    if codex is None:
+        raise FileNotFoundError(
+            f"Codex CLI {configured_codex!r} was not found; install it or set CODEX_BIN"
+        )
     command = [
         codex,
         "--ask-for-approval",
@@ -109,30 +185,71 @@ async def invoke_codex(
         },
     )
     started = time.monotonic()
-    process = await asyncio.create_subprocess_exec(
-        *command,
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    timeout_seconds = float(os.environ.get("CODEX_TIMEOUT_SECONDS", "3600"))
     try:
-        stdout, stderr = await asyncio.wait_for(
-            process.communicate(prompt.encode("utf-8")), timeout=timeout_seconds
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            limit=16 * 1024 * 1024,
         )
+    except PermissionError as error:
+        raise RuntimeError(
+            "The Codex CLI cannot start inside the current macOS sandbox. "
+            "Run this command in a normal Terminal window, or launch the outer Codex "
+            "orchestrator with --sandbox danger-full-access so it can create the "
+            "candidate's nested workspace-write sandbox."
+        ) from error
+    if process.stdin is None or process.stdout is None or process.stderr is None:
+        raise RuntimeError("Codex subprocess streams were not created")
+    stdin = process.stdin
+    stdout = process.stdout
+    stderr = process.stderr
+
+    async def stream_stdout() -> None:
+        with events_file.open("wb") as handle:
+            while line := await stdout.readline():
+                handle.write(line)
+                handle.flush()
+                for rendered in format_live_event(line.decode("utf-8", errors="replace")):
+                    print(rendered, flush=True)
+
+    async def stream_stderr() -> None:
+        with stderr_file.open("wb") as handle:
+            while chunk := await stderr.read(64 * 1024):
+                handle.write(chunk)
+                handle.flush()
+                sys.stderr.write(chunk.decode("utf-8", errors="replace"))
+                sys.stderr.flush()
+
+    print(f"\nStarting Codex · {model} via {provider}\n", flush=True)
+    stdout_task = asyncio.create_task(stream_stdout())
+    stderr_task = asyncio.create_task(stream_stderr())
+    stdin.write(prompt.encode("utf-8"))
+    await stdin.drain()
+    stdin.close()
+
+    timeout_seconds = float(os.environ.get("CODEX_TIMEOUT_SECONDS", "3600"))
+    timed_out = False
+    try:
+        await asyncio.wait_for(process.wait(), timeout=timeout_seconds)
     except TimeoutError:
+        timed_out = True
         process.kill()
-        stdout, stderr = await process.communicate()
-        stderr += f"\nCodex call timed out after {timeout_seconds:.0f}s\n".encode()
+        await process.wait()
+    await asyncio.gather(stdout_task, stderr_task)
+    if timed_out:
+        timeout_message = f"\nCodex call timed out after {timeout_seconds:.0f}s\n"
+        with stderr_file.open("ab") as handle:
+            handle.write(timeout_message.encode())
+        sys.stderr.write(timeout_message)
     elapsed = time.monotonic() - started
-    events_file.write_bytes(stdout)
-    stderr_file.write_bytes(stderr)
     return_code = process.returncode
     if return_code is None:
         raise RuntimeError("Codex process ended without a return code")
-    if b"Codex call timed out" in stderr:
+    if timed_out:
         return_code = 124
-    return return_code, elapsed, parse_usage(stdout.decode("utf-8", errors="replace"))
+    return return_code, elapsed, parse_usage(events_file.read_text(encoding="utf-8"))
 
 
 def arm_configuration(arm: Arm, root: Path) -> tuple[str, str, Path | None, Path | None, list[str]]:
@@ -191,9 +308,13 @@ async def run_arm(
     *,
     root: Path | None = None,
     repairs: int = 1,
+    model: str | None = None,
 ) -> RunRecord:
     repo = root or repository_root()
-    model, provider, distilled, optimized, selected_skills = arm_configuration(arm, repo)
+    configured_model, provider, distilled, optimized, selected_skills = arm_configuration(arm, repo)
+    if model is not None and provider != "lmstudio":
+        raise ValueError("--model is only supported for Qwen arms routed through LM Studio")
+    selected_model = model or configured_model
     run_id = make_run_id(arm)
     run_directory = runs_root(repo) / run_id
     run_directory.mkdir(parents=True)
@@ -213,7 +334,7 @@ async def run_arm(
         message = run_directory / f"attempt-{attempt_number}.final.md"
         exit_code, elapsed, usage = await invoke_codex(
             prompt=current_prompt,
-            model=model,
+            model=selected_model,
             provider=provider,
             workspace=workspace,
             events_file=events,
@@ -284,7 +405,7 @@ async def run_arm(
         experiment_id=active_experiment_id(repo),
         run_id=run_id,
         arm=arm,
-        model=model,
+        model=selected_model,
         provider=provider,
         started_at=started_at,
         finished_at=now(),

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 Arm = Literal["terra", "qwen-bare", "qwen-skill", "qwen-dspy", "qwen-both"]
+Example = Literal["terra", "qwen-skill"]
 
 
 def json_default(value: object) -> str | float:

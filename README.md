@@ -5,8 +5,9 @@ compares the expense of producing an accepted result. Codex is the only agent in
 Python prepares evidence and checks outputs, Terra and Qwen do the model work, and no
 workflow server is required.
 
-The task uses a deterministic, synthetic dataset shaped like NYC Yellow Taxi data. Each
-candidate must use dbt to turn the staged trips and zone lookup into accepted trips,
+The task uses a deterministic 1,000-row synthetic fixture shaped like NYC Yellow Taxi
+data. It is deliberately small enough for a local live demo and does not measure
+large-dataset performance. Each candidate must use dbt to turn the staged trips and zone lookup into accepted trips,
 quarantined trips, hourly pickup metrics, daily route metrics, and a data-quality summary.
 An outside verifier reruns dbt, checks every row against the validity rules, recomputes the
 metrics, executes three fixed Analyst queries, and checks the Parquet exports.
@@ -32,14 +33,22 @@ maintenance, concurrency, and human-review receipts are supplied.
 
 - `uv`
 - Codex CLI, authenticated for hosted Terra calls
-- LM Studio already serving the exact model ID `qwen3.8-27b` at
-  `http://127.0.0.1:1234/v1`
+- LM Studio at `http://127.0.0.1:1234/v1`. The complete demo defaults to the exact
+  model ID `qwen3.8-27b`; individual Qwen arms can use another advertised model ID
+  through `--model`.
 
 Confirm the local setup before spending model time:
 
 ```bash
 uv sync --all-groups
 uv run taxi-demo doctor
+```
+
+The default local route is `qwen3.8-27b`. To verify another exact model ID advertised by
+LM Studio, pass it explicitly:
+
+```bash
+uv run taxi-demo doctor --model qwen3.6-35b-a3b-ud-mlx
 ```
 
 The doctor prints the installed commands, the LM Studio endpoint, every advertised model
@@ -91,6 +100,28 @@ If that experiment already has a distilled skill, start the local Qwen run with:
 uv run taxi-demo run qwen-skill --repairs 1
 ```
 
+To run the same treatment against the Qwen 3.6 model currently advertised by LM Studio:
+
+```bash
+uv run taxi-demo doctor --model qwen3.6-35b-a3b-ud-mlx
+uv run taxi-demo run qwen-skill \
+  --model qwen3.6-35b-a3b-ud-mlx \
+  --repairs 1
+```
+
+Omitting `--model` preserves the original `qwen3.8-27b` route. The exact selected slug is
+stored in the request and run receipts, so runs made with different local models remain
+distinguishable.
+
+Run these `uv run taxi-demo run ...` commands in a normal Terminal window. If an outer
+Codex agent is orchestrating the demo, it must use `--sandbox danger-full-access`; macOS
+otherwise blocks the harness from starting the inner Codex candidate process and its own
+`workspace-write` sandbox.
+
+The harness discovers `codex` from `PATH` first and then checks the standard ChatGPT.app
+and Codex.app bundle locations. For a nonstandard installation, set
+`CODEX_BIN=/absolute/path/to/codex`.
+
 This is a real treatment run, not a replay. The harness creates a new isolated candidate
 workspace, mounts the dbt, DuckDB, and distilled Taxi skills under its local
 `.codex/skills/` directory, and explicitly tells Qwen to invoke all three. Qwen is routed
@@ -113,6 +144,10 @@ The run receipt records `qwen3.8-27b`, the LM Studio route, the three selected s
 prompt hash, token usage, elapsed time, and each verifier result. The preserved candidate
 workspace contains the generated dbt project and serving database.
 
+While a candidate is running, the terminal streams its Codex task list, agent messages,
+commands, command output, errors, and completion usage. The same untouched JSON events are
+written to the run's `attempt-*.events.jsonl` file as they arrive.
+
 ### Create the distilled skill first
 
 A fresh clone has no learned artifact. Build one from independent accepted Terra
@@ -131,6 +166,59 @@ skill inside the active experiment under
 `artifacts/distilled-skill/taxi-data-product-delivery/`. The final command mounts only that
 published skill into Qwen's candidate workspace; it does not expose the teacher workspaces
 or their source evidence to Qwen.
+
+## Inspect accepted Terra and Qwen dbt examples
+
+The repository includes two accepted builds under [`examples/`](examples/): one produced
+by Terra and one produced by Qwen with the distilled Taxi skill. Each directory contains
+the generated dbt project, source fixture, serving database, Parquet exports, model inputs,
+and compact evidence receipts. You can inspect and query them without relying on `.demo/`
+state from the machine that produced the runs.
+
+```bash
+uv run taxi-demo examples
+uv run taxi-demo inspect-example terra
+uv run taxi-demo inspect-example qwen-skill
+
+uv run taxi-demo query-example terra 'show tables'
+uv run taxi-demo query-example qwen-skill \
+  'select reason, row_count from data_quality_summary order by row_count desc, reason'
+```
+
+See [`examples/README.md`](examples/README.md) for the source run IDs, model routes, mounted
+skills, dbt rerun commands, and evidence boundaries.
+
+## Record and open the model-run video player
+
+After an experiment has accepted `qwen-bare`, `qwen-skill`, and `terra` runs, render a
+short terminal replay for each treatment:
+
+```bash
+uv run taxi-demo record-demos
+uv run taxi-demo serve-demos
+```
+
+The second command opens `http://127.0.0.1:8765/`. Use a different port or keep the browser
+closed with:
+
+```bash
+uv run taxi-demo serve-demos --port 9000 --no-open-browser
+```
+
+The player shows the model route, mounted skills, elapsed time, reported tokens, acceptance
+result, and links to the exact request, raw Codex JSONL, verifier result, run receipt, and
+terminal cast. When two accepted Qwen takes exist for an arm, the player keeps both so the
+audience can see run-to-run variance instead of one selected comparison. Each MP4 is an
+edited evidence replay made from a completed run. It is labelled as a replay on the page
+and inside the video; it is not presented as fresh live execution. The generated videos
+and receipts stay under `demo-site/assets/`.
+
+`record-demos` requires `agg` and `ffmpeg` on `PATH`. It does not make new model calls. To
+record a particular preserved experiment instead of the active one:
+
+```bash
+uv run taxi-demo record-demos --experiment <experiment-id>
+```
 
 ## Inspect or resume a run
 
@@ -220,3 +308,17 @@ Qwen treatment configurations, and report generation. Separate DSPy tests exerci
 Codex-backed LM response shape, saved-program loading, and a no-fabricated-failures path.
 The recorded live project-skill discovery check is in
 `docs/verification/skill-discovery-smoke.md`.
+
+## Project status
+
+This is a reproducible conference demo, not a production data-platform framework. The
+checked-in examples let readers inspect accepted dbt products without making model calls;
+the experiment commands create fresh evidence on the reader's own machine. The 1,000-row
+fixture is intentionally sized for a live local demo and is not a performance benchmark.
+
+Issues and pull requests are welcome, especially when they include a reproducible run
+receipt or a failing test.
+
+## License
+
+[MIT](LICENSE)

@@ -11,6 +11,7 @@ from codex_taxi_distillation_demo.inspection import (
     list_runs,
     query_iceberg,
     query_run,
+    resolve_example_workspace,
     resolve_run_workspace,
 )
 from codex_taxi_distillation_demo.paths import active_experiment_id, experiment_root
@@ -79,3 +80,17 @@ def test_query_rejects_writes_and_run_path_escape(demo_root: Path) -> None:
         resolve_run_workspace(demo_root, run_id="../outside")
     with pytest.raises(ValueError, match=r"must contain the \{table\} placeholder"):
         query_iceberg("s3://example/table", "select 1")
+
+
+def test_repository_example_resolves_and_is_queryable(demo_root: Path) -> None:
+    example = demo_root / "examples" / "terra"
+    example.mkdir(parents=True)
+    (example / "dbt_project.yml").write_text("name: example\n", encoding="utf-8")
+    database = duckdb.connect(str(example / "serving.duckdb"))
+    database.execute("create table metrics as select 7 as trip_count")
+    database.close()
+
+    workspace = resolve_example_workspace(demo_root, "terra")
+    result = query_run(workspace, "select trip_count from metrics")
+
+    assert result[0].rows == ((7,),)

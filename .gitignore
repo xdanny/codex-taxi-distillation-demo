@@ -13,3 +13,9 @@ wheels/
 .ruff_cache/
 .mypy_cache/
 *.log
+
+# Generated demo recordings and raw run receipts
+demo-site/assets/
+
+# macOS metadata
+.DS_Store

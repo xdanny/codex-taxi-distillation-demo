@@ -1,0 +1,7 @@
+taxi_serving:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: serving.duckdb
+      threads: 2

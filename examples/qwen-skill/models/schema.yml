@@ -1,0 +1,104 @@
+version: 2
+
+models:
+  - name: trip_facts
+    columns:
+      - name: trip_id
+        tests: [unique, not_null]
+      - name: pickup_at
+        tests: [not_null]
+      - name: dropoff_at
+        tests: [not_null]
+      - name: pickup_location_id
+        tests: [not_null]
+      - name: dropoff_location_id
+        tests: [not_null]
+      - name: trip_distance
+        tests:
+          - not_null
+          - expression_is_true:
+              expression: "trip_distance >= 0"
+      - name: fare_amount
+        tests:
+          - not_null
+          - expression_is_true:
+              expression: "fare_amount >= 0"
+      - name: tip_amount
+        tests: [not_null]
+      - name: passenger_count
+        tests: [not_null]
+      - name: pickup_zone
+        tests: [not_null]
+      - name: dropoff_zone
+        tests: [not_null]
+      - name: service_date
+        tests: [not_null]
+      - name: pickup_hour
+        tests: [not_null]
+      - name: trip_minutes
+        tests:
+          - not_null
+          - expression_is_true:
+              expression: "trip_minutes > 0"
+      - name: total_revenue
+        tests:
+          - not_null
+          - expression_is_true:
+              expression: "total_revenue >= 0"
+  - name: quarantined_trips
+    columns:
+      - name: trip_id
+        tests: [unique, not_null]
+      - name: reason
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - invalid_duration
+                - unknown_pickup_zone
+                - unknown_dropoff_zone
+                - negative_distance
+                - negative_fare
+  - name: hourly_zone_metrics
+    columns:
+      - name: pickup_zone
+        tests: [not_null]
+      - name: pickup_hour
+        tests: [not_null]
+      - name: trip_count
+        tests:
+          - not_null
+          - expression_is_true:
+              expression: "trip_count > 0"
+      - name: total_revenue
+        tests:
+          - not_null
+          - expression_is_true:
+              expression: "total_revenue >= 0"
+  - name: daily_route_metrics
+    columns:
+      - name: service_date
+        tests: [not_null]
+      - name: pickup_zone
+        tests: [not_null]
+      - name: dropoff_zone
+        tests: [not_null]
+      - name: trip_count
+        tests:
+          - not_null
+          - expression_is_true:
+              expression: "trip_count > 0"
+      - name: avg_trip_minutes
+        tests:
+          - not_null
+          - expression_is_true:
+              expression: "avg_trip_minutes >= 0"
+  - name: data_quality_summary
+    columns:
+      - name: reason
+        tests: [not_null]
+      - name: row_count
+        tests:
+          - not_null
+          - expression_is_true:
+              expression: "row_count > 0"

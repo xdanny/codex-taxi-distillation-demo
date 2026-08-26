@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "requiredTables": [
+    "trip_facts",
+    "quarantined_trips",
+    "hourly_zone_metrics",
+    "daily_route_metrics",
+    "data_quality_summary"
+  ],
+  "tableDefinitions": {
+    "trip_facts": {
+      "columns": ["trip_id", "pickup_at", "dropoff_at", "pickup_location_id", "dropoff_location_id", "trip_distance", "fare_amount", "tip_amount", "passenger_count", "pickup_zone", "dropoff_zone", "service_date", "pickup_hour", "trip_minutes", "total_revenue"],
+      "derivedColumns": {"service_date": "cast(pickup_at as date)", "pickup_hour": "extract(hour from pickup_at)", "trip_minutes": "date_diff('minute', pickup_at, dropoff_at)", "total_revenue": "fare_amount + tip_amount"}
+    },
+    "quarantined_trips": {"columns": ["trip_id", "reason"]},
+    "hourly_zone_metrics": {"columns": ["pickup_zone", "pickup_hour", "trip_count", "total_revenue"], "groupBy": ["pickup_zone", "pickup_hour"], "measures": {"trip_count": "count(*)", "total_revenue": "sum(total_revenue)"}},
+    "daily_route_metrics": {"columns": ["service_date", "pickup_zone", "dropoff_zone", "trip_count", "avg_trip_minutes"], "groupBy": ["service_date", "pickup_zone", "dropoff_zone"], "measures": {"trip_count": "count(*)", "avg_trip_minutes": "avg(trip_minutes)"}},
+    "data_quality_summary": {"columns": ["reason", "row_count"], "groupBy": ["reason"], "measures": {"row_count": "count(*)"}}
+  },
+  "requiredFiles": [
+    "dbt_project.yml",
+    "profiles.yml",
+    "serving.duckdb",
+    "target/run_results.json"
+  ],
+  "validTripRules": [
+    "dropoff_at > pickup_at",
+    "pickup_location_id exists in taxi_zones.csv",
+    "dropoff_location_id exists in taxi_zones.csv",
+    "trip_distance >= 0",
+    "fare_amount >= 0"
+  ],
+  "quarantineReasonPrecedence": [
+    "invalid_duration",
+    "unknown_pickup_zone",
+    "unknown_dropoff_zone",
+    "negative_distance",
+    "negative_fare"
+  ],
+  "rowAccounting": "raw = accepted + quarantined",
+  "exports": "one Parquet file per required table",
+  "queryOrder": "Every persisted or reported query result must use a deterministic ORDER BY"
+}

@@ -9,10 +9,10 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from .codex_runner import run_arm, run_parallel_teachers
+from .codex_runner import QWEN_MODEL, run_arm, run_parallel_teachers
 from .distill import run_distillation
 from .doctor import run_doctor
-from .domain import Arm, RunRecord
+from .domain import Arm, Example, RunRecord, read_json
 from .dspy_optimize import optimize_prompt
 from .fixture import prepare_fixture
 from .inspection import (
@@ -21,9 +21,11 @@ from .inspection import (
     list_runs,
     query_iceberg,
     query_run,
+    resolve_example_workspace,
     resolve_run_workspace,
 )
 from .paths import active_experiment_id, experiment_root, repository_root, start_experiment
+from .recordings import record_demo_videos, serve_demo_site
 from .report import build_report
 from .verify import verify_candidate
 
@@ -59,9 +61,14 @@ def print_run(run: RunRecord) -> None:
 
 
 @app.command()
-def doctor() -> None:
+def doctor(
+    model: Annotated[
+        str,
+        typer.Option(help="Exact LM Studio model ID to verify"),
+    ] = QWEN_MODEL,
+) -> None:
     """Check uv, Codex, the repository, and the loaded LM Studio Qwen model."""
-    report = run_doctor()
+    report = run_doctor(model=model)
     console.print_json(data=report)
     if not report["pass"]:
         raise typer.Exit(1)
@@ -201,6 +208,56 @@ def query_file(
     )
 
 
+@app.command("examples")
+def examples_command() -> None:
+    """List the two repository-local accepted dbt examples."""
+    table = Table("Example", "Source run", "Model", "dbt project")
+    examples: tuple[Example, ...] = ("terra", "qwen-skill")
+    for example in examples:
+        workspace = resolve_example_workspace(repository_root(), example)
+        record = read_json(workspace / "evidence" / "provenance.json")
+        table.add_row(
+            example,
+            str(record.get("runId", "")),
+            str(record.get("model", "")),
+            str(workspace / "dbt_project.yml"),
+        )
+    console.print(table)
+
+
+@app.command("inspect-example")
+def inspect_example(example: Example) -> None:
+    """Print the dbt, database, exports, and evidence paths for one example."""
+    workspace = resolve_example_workspace(repository_root(), example)
+    console.print_json(
+        data={
+            "example": example,
+            "workspace": str(workspace),
+            "dbtProject": str(workspace / "dbt_project.yml"),
+            "models": str(workspace / "models"),
+            "tests": str(workspace / "tests"),
+            "database": str(workspace / "serving.duckdb"),
+            "exports": str(workspace / "exports"),
+            "sourceRunProvenance": str(workspace / "evidence" / "provenance.json"),
+            "exampleValidation": str(
+                workspace / "evidence" / "example-validation.json"
+            ),
+        }
+    )
+
+
+@app.command("query-example")
+def query_example(
+    example: Example,
+    sql: Annotated[str, typer.Argument(help="Read-only SQL to execute")],
+    max_rows: Annotated[int, typer.Option(min=1, max=1000)] = 100,
+) -> None:
+    """Query a repository-local example serving database."""
+    workspace = resolve_example_workspace(repository_root(), example)
+    console.print(f"Example: [bold]{example}[/bold]")
+    print_query_results(query_run(workspace, sql, max_rows=max_rows))
+
+
 @app.command("query-iceberg")
 def query_iceberg_table(
     table: str,
@@ -244,9 +301,17 @@ def run_one(
         typer.Argument(help="terra, qwen-bare, qwen-skill, qwen-dspy, or qwen-both"),
     ],
     repairs: Annotated[int, typer.Option(min=0, max=2)] = 1,
+    model: Annotated[
+        str | None,
+        typer.Option(help="Exact LM Studio model ID for a Qwen arm"),
+    ] = None,
 ) -> None:
     """Run one isolated candidate arm under the unchanged verifier."""
-    print_run(asyncio.run(run_arm(arm, root=repository_root(), repairs=repairs)))
+    print_run(
+        asyncio.run(
+            run_arm(arm, root=repository_root(), repairs=repairs, model=model)
+        )
+    )
 
 
 @app.command()
@@ -284,6 +349,24 @@ def report() -> None:
     """Compare completion, attempts, tokens, and elapsed time by arm."""
     json_path, markdown_path = build_report(root=repository_root())
     console.print(f"Report: [bold]{markdown_path}[/bold]\nEvidence: {json_path}")
+
+
+@app.command("record-demos")
+def record_demos(
+    experiment: Annotated[str | None, typer.Option("--experiment")] = None,
+) -> None:
+    """Render Terra, bare-Qwen, and skill-Qwen evidence replays as local videos."""
+    manifest = record_demo_videos(repository_root(), experiment_id=experiment)
+    console.print(f"Recorded demo manifest: [bold]{manifest}[/bold]")
+
+
+@app.command("serve-demos")
+def serve_demos(
+    port: Annotated[int, typer.Option(min=1024, max=65535)] = 8765,
+    open_browser: Annotated[bool, typer.Option("--open-browser/--no-open-browser")] = True,
+) -> None:
+    """Serve the local model-run video player."""
+    serve_demo_site(repository_root(), port=port, open_browser=open_browser)
 
 
 @app.command()

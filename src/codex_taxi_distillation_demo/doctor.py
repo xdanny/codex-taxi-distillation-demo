@@ -8,7 +8,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from .codex_runner import QWEN_MODEL
+from .codex_runner import QWEN_MODEL, resolve_codex_executable
 from .paths import repository_root
 
 
@@ -27,7 +27,7 @@ def command_version(command: list[str]) -> dict[str, Any]:
     }
 
 
-def lmstudio_check() -> dict[str, Any]:
+def lmstudio_check(model: str = QWEN_MODEL) -> dict[str, Any]:
     base = os.environ.get("LMSTUDIO_BASE_URL", "http://127.0.0.1:1234/v1").rstrip("/")
     try:
         with urllib.request.urlopen(f"{base}/models", timeout=5) as response:
@@ -37,12 +37,12 @@ def lmstudio_check() -> dict[str, Any]:
             model_id
             for model_id in ids
             if isinstance(model_id, str)
-            and (model_id == QWEN_MODEL or model_id.endswith(f"/{QWEN_MODEL}"))
+            and (model_id == model or model_id.endswith(f"/{model}"))
         ]
         return {
             "pass": bool(matching),
             "endpoint": base,
-            "expectedModel": QWEN_MODEL,
+            "expectedModel": model,
             "loadedModelIds": ids,
             "matchingModelIds": matching,
         }
@@ -50,17 +50,26 @@ def lmstudio_check() -> dict[str, Any]:
         return {
             "pass": False,
             "endpoint": base,
-            "expectedModel": QWEN_MODEL,
+            "expectedModel": model,
             "error": str(exc),
         }
 
 
-def run_doctor(root: Path | None = None) -> dict[str, Any]:
+def run_doctor(root: Path | None = None, *, model: str = QWEN_MODEL) -> dict[str, Any]:
     repo = root or repository_root()
+    codex = resolve_codex_executable()
     checks = {
         "uv": command_version(["uv", "--version"]),
-        "codex": command_version(["codex", "--version"]),
+        "codex": (
+            command_version([codex, "--version"])
+            if codex is not None
+            else {
+                "pass": False,
+                "command": "codex",
+                "error": "not found on PATH or in an app bundle",
+            }
+        ),
         "gitRepository": {"pass": (repo / ".git").exists(), "path": str(repo)},
-        "lmstudio": lmstudio_check(),
+        "lmstudio": lmstudio_check(model),
     }
     return {"pass": all(check["pass"] for check in checks.values()), "checks": checks}

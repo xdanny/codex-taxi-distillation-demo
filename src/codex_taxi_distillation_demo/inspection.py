@@ -6,7 +6,7 @@ from typing import Any
 
 import duckdb
 
-from .domain import read_json
+from .domain import Example, read_json
 from .paths import active_experiment_id, state_root
 
 
@@ -164,6 +164,16 @@ def resolve_run_workspace(
     if not database.is_file():
         raise FileNotFoundError(f"run has no serving database: {run_directory.name}")
     return run_directory.name, workspace
+
+
+def resolve_example_workspace(root: Path, example: Example) -> Path:
+    examples = (root / "examples").resolve()
+    workspace = (examples / example).resolve()
+    if workspace.parent != examples or not (workspace / "dbt_project.yml").is_file():
+        raise FileNotFoundError(f"example does not exist: {example}")
+    if not (workspace / "serving.duckdb").is_file():
+        raise FileNotFoundError(f"example has no serving database: {example}")
+    return workspace
 
 
 def _execute_read_queries(

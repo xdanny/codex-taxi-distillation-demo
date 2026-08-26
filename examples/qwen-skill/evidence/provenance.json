@@ -1,0 +1,26 @@
+{
+  "accepted": true,
+  "arm": "qwen-skill",
+  "attemptCount": 1,
+  "elapsedSeconds": 1059.5783044160344,
+  "experimentId": "20260826-060242-41bf1a61",
+  "inputReceiptSha256": "48593869b34621a5e9be0ae64205240ee6b2bbcdcd6bd74dbbfcfb64c21d6e8a",
+  "model": "qwen3.8-27b",
+  "promptSha256": "605f68b971ba01bf471989006ec49bae5ec65a9b2cd3eceeeb6c95e0c9d1b018",
+  "provider": "lmstudio",
+  "runId": "20260826-142447-qwen-skill-fe42bfa8",
+  "selectedSkills": [
+    "dbt-data-product",
+    "duckdb-analysis",
+    "taxi-data-product-delivery"
+  ],
+  "sourceFixture": {
+    "classification": "deterministic synthetic NYC Yellow Taxi-shaped fixture",
+    "rows": 300
+  },
+  "usage": {
+    "cachedInputTokens": 4608782,
+    "inputTokens": 4715516,
+    "outputTokens": 34054
+  }
+}

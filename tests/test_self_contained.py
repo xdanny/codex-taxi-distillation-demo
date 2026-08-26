@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 
@@ -47,3 +48,19 @@ def test_output_inspection_guide_states_current_iceberg_boundary() -> None:
     assert "does **not** publish Iceberg tables" in guide
     assert "$DEMO_RUN/workspace/models" in guide
     assert "iceberg_scan" in guide
+
+
+def test_publishable_material_has_no_local_machine_paths() -> None:
+    root = Path(__file__).parents[1]
+    local_home = re.compile(r"/(?:Users|home)/[^/\s]+/")
+    ignored_parts = {".ruff_cache", ".venv", "__pycache__", "assets", "logs", "target"}
+    candidates = [root / "README.md", root / "docs", root / "examples", root / "demo-site"]
+
+    for candidate in candidates:
+        paths = [candidate] if candidate.is_file() else candidate.rglob("*")
+        for path in paths:
+            if not path.is_file() or ignored_parts.intersection(path.parts):
+                continue
+            contents = path.read_text(encoding="utf-8", errors="ignore")
+            assert local_home.search(contents) is None, path
+            assert "/private/var/" not in contents, path

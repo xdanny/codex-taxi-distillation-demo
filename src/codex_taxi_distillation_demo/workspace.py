@@ -42,6 +42,18 @@ def prepare_run_workspace(
 
     shutil.copy2(repo / "pyproject.toml", destination / "pyproject.toml")
     shutil.copy2(repo / "uv.lock", destination / "uv.lock")
+    package = destination / "src" / "codex_taxi_distillation_demo"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text(
+        '"""Installable stub for the isolated Taxi candidate workspace."""\n',
+        encoding="utf-8",
+    )
+    (package / "cli.py").write_text(
+        '"""The experiment CLI runs outside candidate workspaces."""\n\n'
+        "import typer\n\n"
+        'app = typer.Typer(help="Candidate workspace runtime stub.")\n',
+        encoding="utf-8",
+    )
     (destination / ".gitignore").write_text(".venv/\nlogs/\n", encoding="utf-8")
     (destination / "README.md").write_text(
         "# Isolated Taxi candidate\n\nAll candidate work stays in this directory.\n",
@@ -71,8 +83,8 @@ def build_prompt(*, use_distilled_skill: bool) -> str:
         "model-inputs/ANALYST-REQUIREMENT.md and model-inputs/product-contract.json. "
         "Use only the staged input and project-local skills. Run dbt and the frozen Analyst SQL. "
         "Write every required candidate file and export. Use `uv run` for Python and dbt commands. "
-        "Do not edit model-inputs, .codex/skills, input, pyproject.toml, uv.lock, or "
-        "workspace-receipt.json. Report only results you executed."
+        "Do not edit model-inputs, .codex/skills, input, the staged src runtime stub, "
+        "pyproject.toml, uv.lock, or workspace-receipt.json. Report only results you executed."
     )
 
 
