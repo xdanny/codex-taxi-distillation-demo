@@ -18,14 +18,17 @@ from codex_taxi_distillation_demo.dspy_optimize import RepairRouter
 from codex_taxi_distillation_demo.paths import artifacts_root, repository_root
 
 
-def test_qwen_command_uses_exact_lmstudio_route(tmp_path: Path) -> None:
+def test_qwen_command_uses_exact_lmstudio_route(
+    tmp_path: Path, fake_codex: Path, monkeypatch: object
+) -> None:
+    monkeypatch.setenv("CODEX_BIN", str(fake_codex))
     command = command_for(
         model="qwen3.8-27b",
         provider="lmstudio",
         workspace=tmp_path,
         output=tmp_path / "final.md",
     )
-    assert command[0] == resolve_codex_executable()
+    assert command[0] == str(fake_codex)
     assert command[command.index("--model") + 1] == "qwen3.8-27b"
     assert command[command.index("--local-provider") + 1] == "lmstudio"
     assert "--oss" in command
