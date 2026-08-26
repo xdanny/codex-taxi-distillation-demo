@@ -29,3 +29,8 @@ def test_demo_instruction_declares_repository_as_sole_source(demo_root: Path) ->
     ).read_text(encoding="utf-8")
     assert "sole source of truth" in instruction
     assert "Do not inspect or use\nglobal agent memory" in instruction
+
+
+def test_documented_entrypoint_ignores_user_configuration() -> None:
+    readme = (Path(__file__).parents[1] / "README.md").read_text(encoding="utf-8")
+    assert "--ephemeral --ignore-user-config" in readme

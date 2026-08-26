@@ -50,7 +50,8 @@ ID, and whether the required Qwen ID matches.
 From the repository root:
 
 ```bash
-codex --ask-for-approval never exec --sandbox workspace-write -C . \
+codex --ask-for-approval never exec --ephemeral --ignore-user-config \
+  --sandbox workspace-write -C . \
   '$run-offline-data-loop-demo Run the complete demo.'
 ```
 
