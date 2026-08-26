@@ -19,6 +19,11 @@ fixture, verifier, learned artifact, and report must originate here.
 
 ## Execute
 
+For a new comparison, follow the full sequence below. If the request explicitly says to
+resume, inspect `uv run taxi-demo current` and the active cohort first, do not run `start`,
+and continue from the first missing or invalid artifact. An interrupted directory without a
+final `run.json` is not a completed arm and must be rerun.
+
 1. Run `uv sync --all-groups`, then `uv run taxi-demo doctor`. Continue only when Codex is
    available and LM Studio advertises `qwen3.8-27b`.
 2. Run `uv run taxi-demo start`, then `uv run taxi-demo prepare`. Never reuse an older active
@@ -38,7 +43,9 @@ fixture, verifier, learned artifact, and report must originate here.
    producing the distilled skill. A routing lift is not a product-completion claim.
 7. Run `uv run taxi-demo distill`. Read the generated `SKILL.md`, evidence map, validation
    report, release checklist, and symptom-to-repair guide. Continue only when every
-   procedure cites real files from at least two accepted source runs. This establishes a
+   procedure cites real files from at least two accepted source runs. The copied teacher
+   evidence belongs in the experiment's separate provenance directory; it must not be
+   mounted into a treatment candidate as part of the deployable skill. This establishes a
    testable skill, not transfer. Then run these arms under the same contract and verifier:
    - `uv run taxi-demo run qwen-skill --repairs 1`
    - `uv run taxi-demo run qwen-both --repairs 1`

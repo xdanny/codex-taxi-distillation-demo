@@ -114,7 +114,9 @@ Generated state stays under `.demo/`:
   JSONL, stderr, immutable input receipt, every verifier result, and a snapshot of every
   candidate attempt;
 - `.demo/experiments/<experiment-id>/artifacts/distilled-skill/` contains the generated
-  skill, validation result, evidence map, and copied source evidence;
+  deployable skill and validation result. Its separate `provenance/source-evidence/`
+  directory retains the teacher evidence for audit, but is never mounted into a treatment
+  candidate;
 - `.demo/experiments/<experiment-id>/artifacts/dspy/` contains observed eval splits, raw
   Codex-backed GEPA calls, the saved router, its readable instruction, and held-out scores;
 - `.demo/experiments/<experiment-id>/artifacts/report/` contains the JSON evidence and the
