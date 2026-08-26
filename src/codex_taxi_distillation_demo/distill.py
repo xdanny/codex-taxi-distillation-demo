@@ -17,6 +17,20 @@ REQUIRED_SKILL_FILES = (
     "assets/symptom-to-repair.md",
 )
 
+EVIDENCE_WORKSPACE_PATTERNS = (
+    "dbt_project.yml",
+    "profiles.yml",
+    "models/**/*.sql",
+    "models/**/*.yml",
+    "models/**/*.yaml",
+    "tests/**/*.sql",
+    "macros/**/*.sql",
+    "model-inputs/ANALYST-REQUIREMENT.md",
+    "model-inputs/product-contract.json",
+    "model-inputs/analyst-questions.sql",
+    "model-inputs/review-rubric.md",
+)
+
 
 def accepted_teacher_runs(root: Path | None = None) -> list[Path]:
     repo = root or repository_root()
@@ -41,11 +55,7 @@ def collect_evidence(destination: Path, *, root: Path | None = None) -> dict[str
         target = evidence_root / run_id
         target.mkdir()
         copied: list[str] = []
-        for initial_relative in (
-            "run.json",
-            str(record["attempts"][-1]["verification_file"]),
-            "workspace/target/run_results.json",
-        ):
+        for initial_relative in ("run.json", "workspace/target/run_results.json"):
             source_file = source / initial_relative
             if source_file.is_file():
                 destination_file = target / Path(initial_relative).name
@@ -65,12 +75,15 @@ def collect_evidence(destination: Path, *, root: Path | None = None) -> dict[str
             snapshot = source / str(snapshot_name)
             if snapshot.is_dir():
                 destination_snapshot = target / str(snapshot_name)
-                shutil.copytree(snapshot, destination_snapshot)
-                copied.append(f"{snapshot_name}/")
-        models = source / "workspace" / "models"
-        if models.is_dir():
-            shutil.copytree(models, target / "models")
-            copied.append("models/")
+                for pattern in EVIDENCE_WORKSPACE_PATTERNS:
+                    for source_file in snapshot.glob(pattern):
+                        if not source_file.is_file():
+                            continue
+                        relative = source_file.relative_to(snapshot)
+                        destination_file = destination_snapshot / relative
+                        destination_file.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(source_file, destination_file)
+                        copied.append(f"{snapshot_name}/{relative}")
         index.append(
             {
                 "runId": run_id,
@@ -89,7 +102,12 @@ def collect_evidence(destination: Path, *, root: Path | None = None) -> dict[str
     return payload
 
 
-def validate_skill(package: Path, source_run_ids: list[str]) -> dict[str, Any]:
+def validate_skill(
+    package: Path,
+    source_run_ids: list[str],
+    *,
+    evidence_root: Path | None = None,
+) -> dict[str, Any]:
     missing = [relative for relative in REQUIRED_SKILL_FILES if not (package / relative).is_file()]
     errors: list[str] = []
     if missing:
@@ -133,10 +151,10 @@ def validate_skill(package: Path, source_run_ids: list[str]) -> dict[str, Any]:
                     if not isinstance(evidence_files, list) or not evidence_files:
                         errors.append("every procedure needs cited evidence files")
                     else:
-                        evidence_root = package / "assets" / "source-evidence"
+                        provenance = evidence_root or package / "assets" / "source-evidence"
                         existing_evidence: list[str] = []
                         for relative in evidence_files:
-                            if (evidence_root / str(relative)).is_file():
+                            if (provenance / str(relative)).is_file():
                                 existing_evidence.append(str(relative))
                             else:
                                 errors.append(f"procedure evidence file does not exist: {relative}")
@@ -201,9 +219,11 @@ Do not write outside output/taxi-data-product-delivery.
         final_message_file=message,
     )
     package = workspace / "output" / "taxi-data-product-delivery"
-    if package.is_dir():
-        shutil.copytree(workspace / "evidence", package / "assets" / "source-evidence")
-    report = validate_skill(package, list(index["sourceRunIds"]))
+    report = validate_skill(
+        package,
+        list(index["sourceRunIds"]),
+        evidence_root=workspace / "evidence",
+    )
     report.update(
         {
             "model": TERRA_MODEL,
@@ -226,6 +246,11 @@ Do not write outside output/taxi-data-product-delivery.
     published.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(package, published)
     shutil.copy2(workspace / "skill-validation.json", published.parent / "skill-validation.json")
+    provenance = published.parent / "provenance" / "source-evidence"
+    if provenance.exists():
+        shutil.rmtree(provenance)
+    provenance.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(workspace / "evidence", provenance)
     return published
 
 

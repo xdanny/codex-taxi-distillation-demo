@@ -80,7 +80,7 @@ def test_skill_validation_accepts_two_run_procedure(tmp_path: Path) -> None:
     report = validate_skill(package, ["one", "two"])
     assert report["valid"] is True
     (evidence / "two" / "verification.json").unlink()
-    missing_coverage = validate_skill(package, ["one", "two"])
+    missing_coverage = validate_skill(package, ["one", "two"], evidence_root=evidence)
     assert missing_coverage["valid"] is False
     assert any("run two" in error for error in missing_coverage["errors"])
 
@@ -95,7 +95,10 @@ def test_fake_codex_teachers_feed_validated_distillation(
     skill = run_distillation(root=demo_root)
 
     assert (skill / "SKILL.md").is_file()
-    assert (skill / "assets" / "source-evidence").is_dir()
+    assert not (skill / "assets" / "source-evidence").exists()
+    assert (
+        artifacts_root(demo_root) / "distilled-skill" / "provenance" / "source-evidence"
+    ).is_dir()
 
     dspy_output = artifacts_root(demo_root) / "dspy"
     dspy_output.mkdir(parents=True)
