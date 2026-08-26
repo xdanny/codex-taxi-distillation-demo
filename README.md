@@ -51,7 +51,10 @@ From the repository root:
 
 ```bash
 codex --ask-for-approval never exec --ephemeral --ignore-user-config \
-  --sandbox workspace-write -C . \
+  --sandbox workspace-write \
+  -c sandbox_workspace_write.network_access=true \
+  -c features.network_proxy=false \
+  -C . \
   '$run-offline-data-loop-demo Run the complete demo.'
 ```
 
