@@ -42,15 +42,19 @@ def test_documented_entrypoint_ignores_user_configuration() -> None:
 
 def test_readme_leads_with_live_qwen_38_demo() -> None:
     readme = (Path(__file__).parents[1] / "README.md").read_text(encoding="utf-8")
-    live_demo = readme.index("## Run the local Qwen 3.8 demo")
+    live_demo = readme.index("## Start here")
     experiment = readme.index("## What the experiment runs")
 
     assert live_demo < experiment
     opening = readme[live_demo:experiment]
     assert "qwen3.8-27b" in opening
+    assert "git --version" in opening
+    assert "uv sync --frozen --all-groups" in opening
     assert "taxi-demo doctor" in opening
     assert "taxi-demo use-example-skill" in opening
     assert "taxi-demo run qwen-skill --repairs 1" in opening
+    assert "taxi-demo query-example terra" in opening
+    assert "taxi-demo full" in opening
 
 
 def test_start_guide_has_executable_newcomer_paths() -> None:

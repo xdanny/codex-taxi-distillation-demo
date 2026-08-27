@@ -14,15 +14,38 @@ quarantined trips, hourly pickup metrics, daily route metrics, and a data-qualit
 An outside verifier reruns dbt, checks every row against the validity rules, recomputes the
 metrics, executes three fixed Analyst queries, and checks the Parquet exports.
 
-## Run the local Qwen 3.8 demo
+## Start here
+
+### 1. Install the prerequisites
+
+You need Git, [`uv`](https://docs.astral.sh/uv/getting-started/installation/),
+[Codex CLI](https://developers.openai.com/codex/cli/), and LM Studio. Sign in to Codex,
+then confirm the first three tools:
+
+```bash
+git --version
+uv --version
+codex --version
+codex login status
+```
 
 Start LM Studio, load the exact model ID `qwen3.8-27b`, and start its local API server on
-port `1234`. Then run:
+port `1234`. The repository does not download the model or start LM Studio.
+
+### 2. Clone and install the demo
 
 ```bash
 git clone https://github.com/xdanny/codex-taxi-distillation-demo.git
 cd codex-taxi-distillation-demo
 uv sync --frozen --all-groups
+```
+
+`uv` creates `.venv` and installs the locked dependencies. You do not need to activate the
+environment; every command below starts with `uv run`.
+
+### 3. Run Qwen 3.8 with the distilled skill
+
+```bash
 uv run taxi-demo doctor
 uv run taxi-demo start
 uv run taxi-demo prepare
@@ -36,7 +59,9 @@ the outside verifier accepted the product, attempts, reported tokens, and elapse
 It builds a fresh dbt project from the 1,000-row Taxi fixture using the checked-in distilled
 skill; it does not replay the included Qwen result.
 
-Inspect and query the completed candidate with the run ID printed by the command:
+### 4. Inspect the result
+
+Use the run ID printed by the final command:
 
 ```bash
 uv run taxi-demo runs
@@ -45,9 +70,48 @@ uv run taxi-demo query --run YOUR_RUN_ID 'show tables'
 uv run taxi-demo query-file --run YOUR_RUN_ID contracts/analyst-questions.sql
 ```
 
-For installation details, a zero-model-call inspection path, a different LM Studio model,
-or the complete Terra, DSPy, distillation, and Qwen experiment, follow
-[`docs/START_HERE.md`](docs/START_HERE.md).
+The preserved run contains Qwen's request, streamed Codex events, generated dbt project,
+DuckDB serving database, Parquet exports, outside-verifier findings, reported token usage,
+and elapsed time.
+
+### Other ways to run it
+
+To inspect the included Terra and Qwen products without making model calls:
+
+```bash
+uv run taxi-demo examples
+uv run taxi-demo query-example terra \
+  'select count(*) as accepted_rows from trip_facts'
+uv run taxi-demo query-example qwen-skill \
+  'select reason, row_count from data_quality_summary order by reason'
+```
+
+The first query returns `995` accepted rows. The second returns four rejection reasons
+totalling `5` rows, accounting for all `1,000` fixture rows.
+
+To reproduce the complete Terra, DSPy, distillation, and Qwen experiment:
+
+```bash
+uv run taxi-demo full \
+  --teachers 3 \
+  --parallel 3 \
+  --repairs 1 \
+  --max-metric-calls 18
+```
+
+This full route makes multiple hosted Terra calls and local Qwen calls. It writes the final
+comparison to `.demo/experiments/EXPERIMENT_ID/artifacts/report/comparison.md`.
+
+To use another Qwen model, first verify its exact LM Studio ID and then pass the same ID to
+the run:
+
+```bash
+uv run taxi-demo doctor --model YOUR_MODEL_ID
+uv run taxi-demo run qwen-skill --model YOUR_MODEL_ID --repairs 1
+```
+
+If setup or a run fails, see [`docs/START_HERE.md`](docs/START_HERE.md) for the failure
+branches and resume instructions. The README alone is enough for the successful paths.
 
 ## What the experiment runs
 
@@ -65,36 +129,6 @@ One fresh experiment contains:
 The default comparison has one Qwen run per arm. It is a demo receipt, not a statistical
 transfer claim. Monetary expense stays blank until provider charges, local compute, energy,
 maintenance, concurrency, and human-review receipts are supplied.
-
-## Prerequisites
-
-- Git
-- [`uv`](https://docs.astral.sh/uv/getting-started/installation/)
-- [Codex CLI](https://developers.openai.com/codex/cli/), authenticated for hosted Terra
-  calls (`codex login status`)
-- LM Studio at `http://127.0.0.1:1234/v1`. The complete demo defaults to the exact
-  model ID `qwen3.8-27b`; the full demo and individual Qwen arms can use another
-  advertised model ID through `--model`.
-
-Confirm the local setup before spending model time:
-
-```bash
-uv sync --frozen --all-groups
-uv run taxi-demo doctor
-```
-
-The default local route is `qwen3.8-27b`. To verify another exact model ID advertised by
-LM Studio, pass it explicitly:
-
-```bash
-uv run taxi-demo doctor --model qwen3.6-35b-a3b-ud-mlx
-```
-
-The doctor prints the installed commands, the LM Studio endpoint, every advertised model
-ID, Codex authentication state, and whether the required Qwen ID matches. The repository
-does not download or load an LLM for you. See the
-[LM Studio Codex guide](https://lmstudio.ai/docs/integrations/codex) if the server or model
-is not ready.
 
 ## Run the complete demo through one agent instruction
 
