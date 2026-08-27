@@ -5,8 +5,11 @@ import shutil
 import sys
 from pathlib import Path
 
+import pytest
+
 import codex_taxi_distillation_demo.codex_runner as codex_runner
 from codex_taxi_distillation_demo.codex_runner import (
+    arm_configuration,
     command_for,
     format_live_event,
     parse_usage,
@@ -16,6 +19,18 @@ from codex_taxi_distillation_demo.codex_runner import (
 from codex_taxi_distillation_demo.domain import read_json
 from codex_taxi_distillation_demo.dspy_optimize import RepairRouter
 from codex_taxi_distillation_demo.paths import artifacts_root, repository_root
+
+
+def test_missing_distilled_skill_error_gives_short_and_fresh_paths(
+    demo_root: Path,
+) -> None:
+    with pytest.raises(FileNotFoundError) as error:
+        arm_configuration("qwen-skill", demo_root)
+
+    message = str(error.value)
+    assert "taxi-demo use-example-skill" in message
+    assert "taxi-demo teachers --count 3" in message
+    assert "taxi-demo distill" in message
 
 
 def test_qwen_command_uses_exact_lmstudio_route(
@@ -93,6 +108,11 @@ def test_fake_codex_arm_records_accepted_evidence(
     assert (run_directory / "attempt-1.events.jsonl").is_file()
     request = read_json(run_directory / "attempt-1.request.json")
     assert not Path(str(request["workingDirectory"])).is_relative_to(demo_root)
+    assert request["toolchain"] == {
+        "commands": ["dbt", "duckdb", "python"],
+        "installers": "disabled",
+        "pathPrefix": ".tools/bin",
+    }
     assert Path(record.workspace).is_relative_to(run_directory)
 
 

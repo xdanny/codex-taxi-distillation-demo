@@ -17,7 +17,12 @@ from pathlib import Path
 from .domain import Arm, AttemptRecord, RunRecord, Usage, sha256_file, write_json
 from .paths import active_experiment_id, artifacts_root, repository_root, runs_root
 from .verify import verify_candidate
-from .workspace import build_prompt, prepare_run_workspace, repair_prompt
+from .workspace import (
+    build_prompt,
+    candidate_environment,
+    prepare_run_workspace,
+    repair_prompt,
+)
 
 TERRA_MODEL = "gpt-5.6-terra"
 QWEN_MODEL = "qwen3.8-27b"
@@ -180,6 +185,11 @@ async def invoke_codex(
             "model": model,
             "provider": provider,
             "sandbox": "workspace-write",
+            "toolchain": {
+                "pathPrefix": ".tools/bin",
+                "commands": ["dbt", "duckdb", "python"],
+                "installers": "disabled",
+            },
             "prompt": prompt,
             "promptSha256": hashlib.sha256(prompt.encode()).hexdigest(),
         },
@@ -188,6 +198,7 @@ async def invoke_codex(
     try:
         process = await asyncio.create_subprocess_exec(
             *command,
+            env=candidate_environment(workspace),
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -261,7 +272,12 @@ def arm_configuration(arm: Arm, root: Path) -> tuple[str, str, Path | None, Path
         return QWEN_MODEL, "lmstudio", None, None, ["dbt-data-product", "duckdb-analysis"]
     if arm == "qwen-skill":
         if not distilled.is_dir():
-            raise FileNotFoundError("distilled skill is missing; run `taxi-demo distill` first")
+            raise FileNotFoundError(
+                "distilled skill is missing. For the short demo, run "
+                "`uv run taxi-demo use-example-skill`. For fresh distillation, run "
+                "`uv run taxi-demo teachers --count 3 --parallel 3 --repairs 1`, then "
+                "`uv run taxi-demo distill`."
+            )
         return (
             QWEN_MODEL,
             "lmstudio",

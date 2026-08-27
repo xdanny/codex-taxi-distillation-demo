@@ -43,6 +43,10 @@ uv sync --frozen --all-groups
 `uv` installs the locked Python version and dependencies into `.venv`. You do not need to
 activate that environment; every command below begins with `uv run`.
 
+This is the only package installation. The harness gives every candidate the commands
+`dbt`, `duckdb`, and `python` from this locked environment. Candidates do not install
+packages or copy dependency caches.
+
 ## 3. Choose a path
 
 The primary live demo uses Qwen `qwen3.8-27b`. Start with Path A when that model is loaded
@@ -194,9 +198,24 @@ Run `uv run taxi-demo start`, then `uv run taxi-demo prepare`.
 
 ### `distilled skill is missing`
 
-For Path B, run `uv run taxi-demo use-example-skill`. For a fresh distillation, run at least
-two accepted Terra teachers and then `uv run taxi-demo distill`; the complete experiment
-uses three teachers so DSPy can keep train, development, and held-out source runs separate.
+For the short live path, run `uv run taxi-demo use-example-skill`. For a fresh distillation,
+run at least two accepted Terra teachers and then `uv run taxi-demo distill`; the complete
+experiment uses three teachers so DSPy can keep train, development, and held-out source
+runs separate.
+
+The complete fresh command sequence is:
+
+```bash
+uv run taxi-demo teachers --count 3 --parallel 3 --repairs 1
+uv run taxi-demo distill
+uv run taxi-demo run qwen-skill --repairs 1
+```
+
+### Qwen tries to install dbt or DuckDB
+
+Pull the latest repository revision and rerun `uv sync --frozen --all-groups`. Then run
+`uv run taxi-demo doctor`: `candidateToolchain.pass` must be `true`. Current candidate
+workspaces expose `dbt`, `duckdb`, and `python` directly and block `uv` and `pip` installs.
 
 ### A run fails verification
 

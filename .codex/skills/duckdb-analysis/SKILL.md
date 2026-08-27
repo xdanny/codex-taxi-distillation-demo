@@ -6,6 +6,8 @@ description: Query, export, and validate the demo's Taxi data with DuckDB when t
 # DuckDB analysis
 
 Use DuckDB for source inspection and the final serving release.
+The candidate toolchain is already provisioned. Run `duckdb` for SQL or `python` to import
+the DuckDB package directly. Do not run `uv`, `pip`, install dependencies, or copy caches.
 
 1. Query Parquet directly before designing transformations.
 2. Keep `serving.duckdb` as the single serving database.

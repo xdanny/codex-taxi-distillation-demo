@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -70,6 +71,31 @@ def codex_auth_check(codex: str | None) -> dict[str, Any]:
     }
 
 
+def candidate_toolchain_check() -> dict[str, Any]:
+    python = Path(sys.executable)
+    dbt = python.parent / "dbt"
+    python_result = subprocess.run(
+        [str(python), "-c", "import duckdb; print(duckdb.__version__)"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    dbt_result = subprocess.run(
+        [str(dbt), "--version"], text=True, capture_output=True, check=False
+    ) if dbt.is_file() else None
+    return {
+        "pass": python_result.returncode == 0
+        and dbt_result is not None
+        and dbt_result.returncode == 0,
+        "python": str(python),
+        "duckdbVersion": python_result.stdout.strip() or None,
+        "duckdbError": python_result.stderr.strip() or None,
+        "dbt": str(dbt),
+        "dbtAvailable": dbt_result is not None and dbt_result.returncode == 0,
+        "dbtError": dbt_result.stderr.strip() if dbt_result is not None else "not found",
+    }
+
+
 def run_doctor(root: Path | None = None, *, model: str = QWEN_MODEL) -> dict[str, Any]:
     repo = root or repository_root()
     codex = resolve_codex_executable()
@@ -85,6 +111,7 @@ def run_doctor(root: Path | None = None, *, model: str = QWEN_MODEL) -> dict[str
             }
         ),
         "codexAuth": codex_auth_check(codex),
+        "candidateToolchain": candidate_toolchain_check(),
         "gitRepository": {"pass": (repo / ".git").exists(), "path": str(repo)},
         "lmstudio": lmstudio_check(model),
     }

@@ -43,6 +43,11 @@ uv sync --frozen --all-groups
 `uv` creates `.venv` and installs the locked dependencies. You do not need to activate the
 environment; every command below starts with `uv run`.
 
+This is the only dependency-installation step. Each model run exposes that environment
+inside the candidate sandbox as the commands `dbt`, `duckdb`, and `python`. The candidate
+does not install packages or copy uv caches. `taxi-demo doctor` reports
+`candidateToolchain.pass: true` only when dbt and the DuckDB Python package are ready.
+
 ### 3. Run Qwen 3.8 with the distilled skill
 
 ```bash
@@ -51,6 +56,14 @@ uv run taxi-demo start
 uv run taxi-demo prepare
 uv run taxi-demo use-example-skill
 uv run taxi-demo run qwen-skill --repairs 1
+```
+
+`use-example-skill` is the short conference path. To extract a new skill first, replace
+that command with:
+
+```bash
+uv run taxi-demo teachers --count 3 --parallel 3 --repairs 1
+uv run taxi-demo distill
 ```
 
 `doctor` must report that LM Studio advertises `qwen3.8-27b` before the run begins. The
